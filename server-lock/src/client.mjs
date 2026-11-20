@@ -15,7 +15,7 @@ const PUBLIC_PEM = readFileSync(join(root, "client-dist", "public-key.pem"), "ut
 export function makeClient(baseUrl, { deviceId = "device-1" } = {}) {
   let token = null;
   const post = async (path, obj) => {
-    const r = await fetch(`${baseUrl}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(obj) });
+    const r = await fetch(`${baseUrl}${path}`, { method: "POST", headers: { "content-type": "application/json", "x-device": deviceId }, body: JSON.stringify(obj) });
     return { status: r.status, body: await r.json() };
   };
   return {

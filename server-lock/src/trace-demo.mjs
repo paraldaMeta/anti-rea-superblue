@@ -25,9 +25,9 @@ for (const user of ["alice", "bob"]) {
   const src = watermarkClient(join(root, "src", "client.mjs"), base, wm);
   const path = join(root, "builds", `client.${user}.mjs`);
   writeFileSync(path, src);
-  await post(base, "/register-build", { user, canaryId: wm.canaryId, honeytoken: wm.honeytoken });
+  await post(base, "/register-build", { user, canaryId: wm.canaryId, honeytokens: wm.honeytokens });
   builds[user] = { wm, path, fp: buildFingerprint(src) };
-  line(`  ${user}: canaryId=${wm.canaryId}  honeytoken=${wm.honeytoken}  fp=${builds[user].fp}`);
+  line(`  ${user}: canaryId=${wm.canaryId}  honeytokens=T1/T2/T3  fp=${builds[user].fp}`);
 }
 
 // ---- legit usage by alice ----
@@ -37,30 +37,44 @@ const alice = makeClient(base, { deviceId: "alice-laptop" });
 await alice.activate(aliceKey);
 line(`  premium -> ${(await alice.premium("hello")).result}`);
 
-// ---- LEAK SCENARIO 1: attacker scrapes BOB's build and trips the honeytoken ----
-line("\n=== TRACEBACK 1: honeytoken (attacker scraped a binary) ===");
-line(`  attacker greps bob's build, finds __FALLBACK_LICENSE = ${builds.bob.wm.honeytoken}`);
-await fetch(`${base}/activate`, { method: "POST", headers: { "content-type": "application/json", "x-device": "attacker-vm", "user-agent": "curl/8" }, body: JSON.stringify({ licenseKey: builds.bob.wm.honeytoken, deviceId: "attacker-vm" }) });
-line(`  -> server returns a generic failure (attacker learns nothing), but internally ATTRIBUTES the leak to BOB.`);
+// ---- LEAK SCENARIO 1: tiered honeytokens grade the attacker's intent ----
+const tripHoney = (dev, ua, value) => fetch(`${base}/activate`, { method: "POST", headers: { "content-type": "application/json", "x-device": dev, "user-agent": ua }, body: JSON.stringify({ licenseKey: value, deviceId: dev }) });
+line("\n=== TRACEBACK 1: tiered honeytoken (grades casual vs automated) ===");
+line("  (a) casual: someone greps bob's build, tries the obvious plaintext key (T1)");
+await tripHoney("curious-1", "Chrome", builds.bob.wm.honeytokens[0].value);
+line("  (b) scraper: another attacker base64-decodes the T2 key and tries it");
+await tripHoney("scraper-1", "python-requests", builds.bob.wm.honeytokens[1].value);
+line("  (c) automation: a harvester hammers many keys fast, then the T3 split key");
+for (let i = 0; i < 6; i++) await tripHoney("bot-9", "go-http", "bob.badkey" + i);
+await tripHoney("bot-9", "go-http", builds.bob.wm.honeytokens[2].value);
+line("  -> all attributed to BOB; each graded low / medium / high by tier + velocity.");
 
 // ---- LEAK SCENARIO 2: bob's watermarked build runs in an un-isolated analysis env ----
 line("\n=== TRACEBACK 2: canary beacon (build executed with network) ===");
 await get(base, `/canary?id=${builds.bob.wm.canaryId}&ev=load`, { "user-agent": "node-analysis-sandbox", "x-device": "sandbox-7" });
 line(`  -> bob's build phoned home from an analysis environment; flagged.`);
 
-// ---- ANOMALY: alice's token used from a second device (sharing / cloned client) ----
-line("\n=== ANOMALY: token sharing / cloned client ===");
-const sharedToken = alice._token();
-await fetch(`${base}/premium`, { method: "POST", headers: { "content-type": "application/json", "x-device": "alice-laptop" }, body: JSON.stringify({ token: sharedToken, input: "a" }) });
-await fetch(`${base}/premium`, { method: "POST", headers: { "content-type": "application/json", "x-device": "unknown-box-42" }, body: JSON.stringify({ token: sharedToken, input: "b" }) });
-line(`  -> same token seen on 2 device fingerprints; flagged as sharing.`);
+const prem = (token, dev, input, geo) => fetch(`${base}/premium`, { method: "POST", headers: { "content-type": "application/json", "x-device": dev, ...(geo ? { "x-geo": geo } : {}) }, body: JSON.stringify({ token, input }) }).then(r => r.json());
+const aliceToken = alice._token();
+
+// ---- HARD DEVICE BINDING: a copied token on another machine is DENIED ----
+line("\n=== HARD DEVICE BINDING (enforced) ===");
+const sameDev = await prem(aliceToken, "alice-laptop", "x");
+line(`  alice's own device       : ${sameDev.result ? "✅ " + sameDev.result : "❌ " + sameDev.error}`);
+const otherDev = await prem(aliceToken, "stolen-box", "x");
+line(`  same token, other machine: ${otherDev.error ? "❌ " + otherDev.error : "✅ " + otherDev.result}  (copied token is useless off the bound device)`);
+
+// ---- IMPOSSIBLE TRAVEL: same device, two far-apart locations in moments ----
+line("\n=== IMPOSSIBLE TRAVEL ===");
+await prem(aliceToken, "alice-laptop", "x", "1.3521,103.8198");   // Singapore
+await prem(aliceToken, "alice-laptop", "x", "40.7128,-74.0060");  // New York, seconds later
+line(`  Singapore -> New York in seconds on one account -> flagged (shared/stolen credentials).`);
 
 // ---- RESPONSE: revoke (kill switch) ----
 line("\n=== RESPONSE: revoke ===");
 await post(base, "/revoke", { user: "bob" });
-const afterRevoke = await post(base, "/premium", { token: sharedToken, input: "c" }); // alice still works
-await post(base, "/revoke", { jti: JSON.parse(Buffer.from(sharedToken.split(".")[0], "base64url")).jti });
-const aliceAfter = await post(base, "/premium", { token: sharedToken, input: "d" });
+await post(base, "/revoke", { jti: JSON.parse(Buffer.from(aliceToken.split(".")[0], "base64url")).jti });
+const aliceAfter = await prem(aliceToken, "alice-laptop", "d");
 line(`  bob revoked (kill switch). alice token revoked -> /premium: ${aliceAfter.error ? "❌ " + aliceAfter.error : "✅"}`);
 
 // ---- EVIDENCE: forensic attribution report ----
