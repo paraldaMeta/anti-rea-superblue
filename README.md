@@ -8,7 +8,27 @@ Defensive tooling for **raising cost** against REA-class static/agent reverse en
 | [`server-lock/`](server-lock/) | L1 authority: license minting, signed tokens, server-only premium logic + attribution (no hack-back) |
 | [`sample/`](sample/) | Tiny targets for scan/harden/relocate demos |
 
-## Quick start
+## Cursor Skill（无脑路线）
+
+不想记 CLI 时，把 **Skill** 装进你自己的项目，对话里 `@anti-rea-protect`，选路线即可：
+
+| 路线 | 含义 |
+|------|------|
+| **R0** | 只扫描泄漏 |
+| **R1** | 生产构建（`--no-tarpit`） |
+| **R2** | REA 摩擦实验 |
+| **R3** | server-lock 真锁 |
+| **R4** | 真锁 + 瘦客户端加固 |
+
+**安装（在你要保护的应用仓库根目录执行）：**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/paraldaMeta/bla-hardened/main/scripts/install-cursor-skill.sh | bash
+```
+
+详情：[`.cursor/skills/anti-rea-protect/install.md`](.cursor/skills/anti-rea-protect/install.md)
+
+## Quick start (CLI)
 
 ```bash
 node superblue/src/index.mjs scan sample/license.js
