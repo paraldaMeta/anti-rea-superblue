@@ -18,6 +18,7 @@ import { stripDist } from "./strip-dist.mjs";
 import { relocateFromFile } from "./relocate.mjs";
 import { testRea } from "./rea-test.mjs";
 import { electronProfileScan, electronProfileMarkdown } from "./profile-electron.mjs";
+import { bytenodeProfileScan, bytenodeProfileMarkdown } from "./profile-bytenode.mjs";
 
 function parseArgs(argv) {
   const a = { _: [] };
@@ -37,6 +38,7 @@ function parseArgs(argv) {
     else if (t === "--dry-run") a.dryRun = true;
     else if (t === "--profile") a.profile = argv[++i];
     else if (t === "--api-base") a.apiBase = argv[++i];
+    else if (t === "--server-lock") a.serverLock = true;
     else if (t === "--skip-raised") a.skipRaised = true;
     else a._.push(t);
   }
@@ -86,9 +88,16 @@ async function main() {
   }
 
   if (cmd === "relocate" && args._[1]) {
-    const outDir = resolve(args.out || join(process.cwd(), "relocate-out"));
+    const defaultOut = args.serverLock
+      ? resolve(join(here, "..", "relocate-out"))
+      : resolve(join(process.cwd(), "relocate-out"));
+    const outDir = resolve(args.out || defaultOut);
     try {
-      const r = relocateFromFile(resolve(args._[1]), outDir, { apiBase: args.apiBase || "http://localhost:8787" });
+      const r = relocateFromFile(resolve(args._[1]), outDir, {
+        apiBase: args.apiBase || "http://localhost:8787",
+        serverLock: !!args.serverLock,
+        serverLockRoot: resolve(join(here, "..", "server-lock")),
+      });
       console.log(`relocate: export=${r.exportName}\n  client: ${r.clientPath}\n  server: ${r.serverPath}\n  notes:  ${r.notePath}`);
       process.exit(0);
     } catch (e) { console.error(e.message || e); process.exit(2); }
@@ -110,10 +119,10 @@ async function main() {
 Usage:
   superblue scan <path> [--block-level critical|high|moderate] [--json]
   superblue strip-dist <distDir> [--dry-run]
-  superblue relocate <module.js> [--out dir] [--api-base URL]   # L1 thin client + server skeleton
+  superblue relocate <module.js> [--out dir] [--api-base URL] [--server-lock]
   superblue test-rea <artifact-dir> [--out dir] [--skip-raised]  # measured default vs raised budget
   superblue run <target.js> --oracle <oracle.mjs> [--out <dir>] [--no-tarpit] [--json]
-                              [--profile electron]
+                              [--profile electron|bytenode]
                             [--block-level critical|high|moderate] [--timeout-ms <n>]
                             [--intensity stealth|balanced|maximum|bankrupt]
                             [--chaff-level light|heavy|extreme] [--no-chaff]
@@ -151,10 +160,16 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
   // L0 — Contain (on the ORIGINAL)
   const l0 = scan(target);
   report.layers.L0_contain = l0;
-  if ((args.profile || "").toLowerCase() === "electron") {
+  const prof = (args.profile || "").toLowerCase();
+  if (prof === "electron") {
     const ep = electronProfileScan(target);
     report.layers.L0_electron_profile = ep;
     writeFileSync(join(outDir, "ELECTRON-PROFILE.md"), electronProfileMarkdown(ep));
+  }
+  if (prof === "bytenode") {
+    const bp = bytenodeProfileScan(target);
+    report.layers.L0_bytenode_profile = bp;
+    writeFileSync(join(outDir, "BYTECODE-PROFILE.md"), bytenodeProfileMarkdown(bp));
   }
   const blockingLeaks = atOrAbove(l0.findings); // F5: at or above configured block level
 

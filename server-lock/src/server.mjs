@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { mint, verifyToken } from "./token.mjs";
 import { hwFingerprint, verifyAttestation } from "./attestation.mjs";
 import { signReport } from "./report.mjs";
+import { premiumViaRelocated } from "./relocate-bridge.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PRIVATE_PEM = readFileSync(join(root, "secrets", "signing-private.pem"), "utf8");
@@ -38,7 +39,9 @@ function validLicense(licenseKey) {
 }
 
 // ---- the VALUABLE computation the product sells. Never leaves the server. ----
-function premiumTransform(input) {
+async function premiumTransform(input) {
+  const relocated = await premiumViaRelocated(input);
+  if (relocated != null) return relocated;
   let acc = 0x9e3779b9 >>> 0;
   for (const ch of String(input)) acc = ((acc ^ ch.charCodeAt(0)) * 0x01000193) >>> 0;
   return `SECRET(${input})=${acc.toString(16).padStart(8, "0")}`;
@@ -241,7 +244,8 @@ export function createServer() {
       if (state.revokedUser.has(user)) return json(res, 403, { error: "revoked" });
 
       log("premium.ok", { user, jti, ...meta });
-      return json(res, 200, { result: premiumTransform(input), servedTo: user });
+      const result = await premiumTransform(input);
+      return json(res, 200, { result, servedTo: user });
     }
 
     // Revoke (vendor action): kill a token or a whole user.

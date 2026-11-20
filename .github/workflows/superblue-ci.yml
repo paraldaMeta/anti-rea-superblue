@@ -1,0 +1,39 @@
+name: superblue-ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  scan-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: L0 scan (sample)
+        run: node superblue/src/index.mjs scan sample/license.js --json
+      - name: L0 scan moderate sample
+        run: node superblue/src/index.mjs scan sample/moderate/license.mod.js --block-level high
+      - name: Relocate scaffold (server-lock)
+        run: |
+          node superblue/src/index.mjs relocate sample/license.js --server-lock
+          test -f relocate-out/checkLicense.client.mjs
+      - name: server-lock syntax check
+        run: node --check server-lock/src/server.mjs
+
+  rea-regression:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: test-rea (skip raised — network/time)
+        run: node superblue/src/index.mjs test-rea sample --skip-raised --out /tmp/rea-out || true

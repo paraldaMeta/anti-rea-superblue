@@ -1,0 +1,30 @@
+# Local REA / attack evidence
+attack/
+attack-kit/
+anti-rea-survey/
+.bla*
+.blarc
+
+# Bundled Node runtimes
+node-v*/
+node*.tar.gz
+
+# Dependencies & artifacts
+node_modules/
+upstream-src/
+src-upstream/
+superblue-out*/
+relocate-out/
+!relocate-out/.gitkeep
+rea-test-out/
+*.tgz
+*.zip
+
+# Secrets & generated server-lock material
+server-lock/secrets/
+server-lock/client-dist/
+server-lock/builds/
+server-lock/src/logic-relocated.mjs
+
+# OS
+.DS_Store

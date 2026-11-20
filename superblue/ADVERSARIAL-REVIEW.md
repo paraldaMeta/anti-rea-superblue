@@ -85,3 +85,17 @@ server-side; client ships only a public key). Its `demo.mjs` runs four attacks f
 the full-client-source threat model (forge license, forge token, patch the local
 gate, clone the client) and all four fail. SuperBlue's own scanner confirms the
 shipped client is `baseline / 0 findings`. That is the lock; L0–L3 are the moat.
+
+## Post A/B integration (release prep)
+
+### F8 · MEDIUM — relocate `--server-lock` depends on export shape
+Body extraction only handles simple `export function` / `export const` / `export default function` shapes. Modules with re-exports, class methods, or minified bundles need manual `logic-relocated.mjs`. **Mitigation:** run `superblue scan` on the generated client; verify with `server-lock` demo attacks.
+
+### F9 · LOW — `relocate-bridge` loads server logic at first premium call
+Dynamic `import()` of `logic-relocated.mjs` is lazy; a typo in generated logic fails at runtime on first `/premium`, not at server boot. **Mitigation:** integration test: `relocate` + `keygen` + one authenticated premium request in CI (future).
+
+### F10 · LOW — bytenode / Electron profiles are advisory only
+`--profile bytenode` and `--profile electron` emit checklists, not enforced transforms. They must not be read as additional security guarantees.
+
+### F11 · INHERENT — public MIT repo
+Publishing this tooling helps defenders and attackers equally. The value is **process** (scan → relocate → server-lock) and measured honesty in docs, not obscurity.
