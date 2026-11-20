@@ -1,0 +1,12 @@
+{
+  "name": "server-lock",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Reference L1 server-side authority — the real lock behind SuperBlue.",
+  "scripts": {
+    "keygen": "node src/keygen.mjs",
+    "demo": "node src/demo.mjs",
+    "server": "node src/server.mjs"
+  }
+}

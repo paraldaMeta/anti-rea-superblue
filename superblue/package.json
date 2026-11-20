@@ -1,0 +1,11 @@
+{
+  "name": "superblue",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SuperBlue — layered blue-team pipeline vs REA-class AI reverse-engineering: Contain (leaks) -> Architect (advice) -> Harden+Verify -> Tarpit -> Re-scan. Evidence over promises. Defensive use only.",
+  "bin": { "superblue": "./src/index.mjs" },
+  "license": "MIT",
+  "config": {
+    "notes": "No heavy runtime deps. esbuild + bla-fork are located at runtime; both optional per layer."
+  }
+}
