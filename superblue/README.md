@@ -9,8 +9,14 @@ cannot do. Defensive use only (protect software you own).
 ## The pipeline
 
 ```
+superblue scan <path> [--block-level critical|high|moderate] [--json]
+superblue strip-dist <distDir> [--dry-run]
 superblue run <target.js> --oracle <oracle.mjs> [--out dir] [--no-tarpit] [--json]
+              [--max-friction] [--docker-verify]
 ```
+
+Every `run` writes `report.json`, `POLICY.json`, `reaMatrix`, `REFERENCES-SYNTHESIS.md`,
+`CLIENT-CONSTITUTION.md`, and `templates/PRE-SHIP.md` guidance (in synthesis doc).
 
 | Layer | What it does | Durability | Source of the idea |
 | --- | --- | --- | --- |
@@ -47,7 +53,7 @@ superblue run <target.js> --oracle <oracle.mjs> [--out dir] [--no-tarpit] [--jso
   Expect large bundle growth and CI secret-scanner noise from decoys — ship `--no-tarpit`
   for production.
 - **Policy + thin client:** each run writes `POLICY.json` + `CLIENT-CONSTITUTION.md`
-  (versioned rules, AIHOT-inspired).
+  (versioned rules for shipped clients and CI).
 
 ## The oracle
 

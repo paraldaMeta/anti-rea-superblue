@@ -1,4 +1,4 @@
-// SuperBlue policy envelope (AIHOT-inspired): versioned rules shipped alongside artifacts.
+// SuperBlue policy envelope: versioned rules shipped alongside artifacts.
 // Does not hide logic — tells integrators and agents what the client MAY do.
 export const POLICY_VERSION = "1.0.0";
 

@@ -10,8 +10,11 @@ import { scan } from "./scan.mjs";
 import { harden, esbuildAvailable } from "./harden.mjs";
 import { tarpit, tarpitAvailable } from "./tarpit.mjs";
 import { verifyEquivalence } from "./verify.mjs";
+import { verifyEquivalenceIsolated } from "./verify-docker.mjs";
 import { applyChaff, estimateReaFriction } from "./chaff.mjs";
 import { policyEnvelope, POLICY_VERSION } from "./policy.mjs";
+import { buildReaMatrix } from "./rea-matrix.mjs";
+import { stripDist } from "./strip-dist.mjs";
 
 function parseArgs(argv) {
   const a = { _: [] };
@@ -27,6 +30,8 @@ function parseArgs(argv) {
     else if (t === "--chaff-level") a.chaffLevel = argv[++i];
     else if (t === "--no-chaff") a.noChaff = true;
     else if (t === "--max-friction") { a.maxFriction = true; a.chaffLevel = "extreme"; a.intensity = "bankrupt"; }
+    else if (t === "--docker-verify") a.dockerVerify = true;
+    else if (t === "--dry-run") a.dryRun = true;
     else a._.push(t);
   }
   return a;
@@ -45,13 +50,41 @@ const L1_ADVICE = [
   "Treat L0–L3 as cost-raising for REA-class *static/agent decompilation*, not as protection against behavioural cloning.",
 ];
 
+const verifyFn = (args) => args.dockerVerify
+  ? (o, c, w, opt) => verifyEquivalenceIsolated(o, c, w, { ...opt, preferDocker: true })
+  : verifyEquivalence;
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const cmd = args._[0];
+
+  if (cmd === "scan" && args._[1]) {
+    const target = resolve(args._[1]);
+    const r = scan(target);
+    const blockLevelName = (args.blockLevel || "critical").toLowerCase();
+    const BLOCK = { critical: 3, high: 2, moderate: 1 };
+    const thr = BLOCK[blockLevelName] ?? 3;
+    const SEVRANK = { CRITICAL: 3, HIGH: 2, MODERATE: 1 };
+    const blocking = r.findings.filter((f) => (SEVRANK[f.severity] || 0) >= thr);
+    const out = { ...r, blockLevel: blockLevelName, blockingCount: blocking.length, exitCode: blocking.length ? 2 : 0 };
+    if (args.json) { console.log(JSON.stringify(out, null, 2)); process.exit(out.exitCode); }
+    console.log(`L0 scan: risk=${r.risk} findings=${r.findings.length} blocking(≥${blockLevelName})=${blocking.length}`);
+    for (const f of r.findings.slice(0, 15)) console.log(`  [${f.severity}] ${f.kind} @ ${f.where}`);
+    process.exit(out.exitCode);
+  }
+
+  if (cmd === "strip-dist" && args._[1]) {
+    const r = stripDist(resolve(args._[1]), { dryRun: !!args.dryRun });
+    console.log(args.dryRun ? "[dry-run]" : "done", r);
+    process.exit(0);
+  }
+
   if (cmd !== "run" || !args._[1]) {
     console.log(`SuperBlue — layered anti-REA blue-team pipeline (defensive use only)
 
 Usage:
+  superblue scan <path> [--block-level critical|high|moderate] [--json]
+  superblue strip-dist <distDir> [--dry-run]
   superblue run <target.js> --oracle <oracle.mjs> [--out <dir>] [--no-tarpit] [--json]
                             [--block-level critical|high|moderate] [--timeout-ms <n>]
                             [--intensity stealth|balanced|maximum|bankrupt]
@@ -61,8 +94,8 @@ Usage:
 Gate (F5): --block-level sets the leak severity that FAILS the build (default: critical).
 Friction: L2.5 chaff (default heavy when L3 on) + L3 tarpit burn REA DEFAULT semantic budgets.
           --max-friction = chaff extreme + BLA bankrupt (still beaten by raised budgets — honest).
-Verify (F4): equivalence runs in an isolated child process with a wall-clock timeout.
-Policy: report includes policy v${POLICY_VERSION} envelope (AIHOT-style versioned rules).
+Verify (F4): child process by default; --docker-verify uses DeRea-style Docker (network=none).
+Policy: report includes policy v${POLICY_VERSION} envelope (versioned rules for integrators).
 
 Layers:
   L0 Contain    leak/secret/source-map scan (gate)         [always]
@@ -99,8 +132,9 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
   const hardenedPath = join(outDir, `${name}.L2.mjs`);
   const l2 = { ...harden(target, hardenedPath) };
   l2.containment = scan(hardenedPath); // the real shipped logic must be leak-clean
+  const eq = verifyFn(args);
   if (args.oracle) {
-    try { l2.equivalence = await verifyEquivalence(target, hardenedPath, resolve(args.oracle), { timeoutMs: args.timeoutMs }); }
+    try { l2.equivalence = await eq(target, hardenedPath, resolve(args.oracle), { timeoutMs: args.timeoutMs }); }
     catch (e) { l2.equivalence = { pass: false, error: String(e) }; }
   } else l2.equivalence = { skipped: "no --oracle; cannot verify behaviour" };
   report.layers.L2_harden = l2;
@@ -126,7 +160,7 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
     const tarpitPath = join(outDir, `${name}.L3.js`);
     const l3 = { ...tarpit(tarpitInput, tarpitPath, { intensity: tarpitIntensity }) };
     if (l3.applied && args.oracle) {
-      try { l3.equivalence = await verifyEquivalence(target, tarpitPath, resolve(args.oracle), { timeoutMs: args.timeoutMs }); }
+      try { l3.equivalence = await eq(target, tarpitPath, resolve(args.oracle), { timeoutMs: args.timeoutMs }); }
       catch (e) { l3.equivalence = { pass: false, error: String(e) }; }
       if (l3.equivalence.pass) finalArtifact = tarpitPath;
     }
@@ -158,6 +192,7 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
     honestNote: "SuperBlue raises REA-class decompilation cost and removes leaks; it does NOT make the target unbreakable, and does NOT stop behavioural cloning (that needs L1 server-side).",
     reaFrictionEstimate: estimateReaFriction(report.layers.L2_5_chaff, report.layers.L3_tarpit),
   };
+  report.reaMatrix = buildReaMatrix(report);
   report.policy = policyEnvelope(report);
 
   // CI exit code: fail when containment gate fails, or when an oracle WAS given
@@ -168,6 +203,10 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
   writeFileSync(join(outDir, "report.json"), JSON.stringify(report, null, 2));
   writeFileSync(join(outDir, "POLICY.json"), JSON.stringify(report.policy, null, 2));
   writeFileSync(join(outDir, "CLIENT-CONSTITUTION.md"), readClientConstitution());
+  const synth = join(here, "REFERENCES-SYNTHESIS.md");
+  if (existsSync(synth)) copyFileSync(synth, join(outDir, "REFERENCES-SYNTHESIS.md"));
+  const preShip = join(here, "templates", "PRE-SHIP.md");
+  if (existsSync(preShip)) copyFileSync(preShip, join(outDir, "PRE-SHIP.md"));
 
   if (args.json) { console.log(JSON.stringify(report, null, 2)); process.exit(exitCode); }
 

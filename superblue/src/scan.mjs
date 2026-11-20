@@ -17,6 +17,13 @@ const SECRET_PATTERNS = [
   [/\bxox[baprs]-[A-Za-z0-9-]{10,}\b/, "Slack token", SEV.CRITICAL],
   [/\bsk-[A-Za-z0-9]{20,}\b/, "OpenAI-style secret key", SEV.CRITICAL],
   [/\bsk_live_[A-Za-z0-9]{10,}\b/, "Stripe live secret key", SEV.CRITICAL],
+  [/\bsk_test_[A-Za-z0-9]{10,}\b/, "Stripe test secret key", SEV.HIGH],
+  [/\brk_live_[A-Za-z0-9]{10,}\b/, "Stripe restricted live key", SEV.CRITICAL],
+  [/\bgsk_[A-Za-z0-9]{20,}\b/, "Groq API key", SEV.CRITICAL],
+  [/\bsk-or-v1-[0-9a-f]{32,}\b/, "OpenRouter key", SEV.CRITICAL],
+  [/\bpplx-[A-Za-z0-9]{20,}\b/, "Perplexity API key", SEV.HIGH],
+  [/\bDiscord\s+Bot\s+Token|discord(?:app)?\.com\/api\/webhooks\/\d+\//i, "Discord bot/webhook material", SEV.HIGH],
+  [/\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|rediss?):\/\/[^\s"']{8,}:[^\s"']{4,}@[^\s"']+/i, "database connection string with password", SEV.CRITICAL],
   [/\bAIza[0-9A-Za-z\-_]{35}\b/, "Google API key", SEV.HIGH],
   [/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/, "JWT", SEV.HIGH],
   [/\b(?:api[_-]?key|secret|passwd|password|token|private[_-]?key)\b\s*[:=]\s*["'][^"']{8,}["']/i, "hardcoded credential assignment", SEV.HIGH],
@@ -76,6 +83,8 @@ const FILE_LEAKS = [
   [/(^|\/)\.DS_Store$/i, "macOS .DS_Store", SEV.MODERATE],
   [/\.(?:pem|key|p12|pfx|keystore|jks)$/i, "private key / keystore file", SEV.CRITICAL],
   [/\.(?:pdb|dSYM)$/i, "debug symbol file", SEV.HIGH],
+  [/\.asar$/i, "Electron ASAR bundle (inspect for embedded maps/secrets)", SEV.MODERATE],
+  [/\.wasm$/i, "WebAssembly binary in ship tree (logic may be extractable)", SEV.MODERATE],
 ];
 
 function shannon(s) {
@@ -146,6 +155,14 @@ export function scan(targetPath) {
     }
     for (const sm of classifyInlineSourceMaps(text)) add({ ...sm, where: relp });
     for (const h of entropyHits(text)) add({ ...h, where: relp });
+    if (ext === ".map" && e.size < 2 * 1024 * 1024) {
+      try {
+        const map = JSON.parse(readFileSync(e.path, "utf8"));
+        const embedded = (map.sourcesContent || []).some((s) => s && String(s).trim());
+        if (embedded) add({ severity: SEV.CRITICAL, kind: "standalone .map embeds sourcesContent (reaproof-class leak)", where: relp });
+        else if (map.sources?.length) add({ severity: SEV.HIGH, kind: "standalone .map lists original source paths", where: relp });
+      } catch { /* non-json map */ }
+    }
   }
 
   // de-dup (kind+where)
