@@ -2,7 +2,7 @@
 # Install Anti-ReA Skill: SuperBlue (Cursor skill) into the current project.
 set -euo pipefail
 REPO="${BLA_HARDENED_REPO:-https://github.com/paraldaMeta/bla-hardened.git}"
-REF="${BLA_HARDENED_REF:-v0.4.0}"
+REF="${BLA_HARDENED_REF:-v0.4.1}"
 ROOT="$(pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

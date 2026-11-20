@@ -13,6 +13,7 @@ node*.tar.gz
 node_modules/
 upstream-src/
 src-upstream/
+dist/
 superblue-out*/
 relocate-out/
 !relocate-out/.gitkeep

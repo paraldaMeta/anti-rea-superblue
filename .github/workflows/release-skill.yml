@@ -1,0 +1,27 @@
+name: release-skill
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package skill bundle
+        run: |
+          chmod +x scripts/package-skill-release.sh
+          VER="${GITHUB_REF_NAME}" bash scripts/package-skill-release.sh "$GITHUB_REF_NAME"
+          ls -la dist/
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "Anti-ReA Skill: SuperBlue ${GITHUB_REF_NAME}" \
+            --notes "Skill zip + install script. See README and .cursor/skills/anti-rea-superblue/install.md" \
+            dist/anti-rea-superblue-skill-"${GITHUB_REF_NAME}".zip

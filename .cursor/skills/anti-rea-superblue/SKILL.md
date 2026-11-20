@@ -64,8 +64,8 @@ Ask **once** unless the user already answered in the same thread:
 | **Target** | File, directory, or `dist/` to scan/harden |
 | **Gate strictness** | `critical` (default) · `high` · `moderate` |
 
-If they say "无脑 / 你看着办": default **R1 production-ship** on their main JS entry if
-backend exists; if **no backend**, default **R0 audit** then explain **R3** needs a server.
+If they say "无脑 / 你看着办 / playbook / 全自动": run **[AGENT-PLAYBOOK.md](AGENT-PLAYBOOK.md) Mode A**
+(`skill-intake.mjs --route auto`) then execute `plan.steps` — do not improvise flags.
 
 ## Step 2 — Execute the route playbook
 

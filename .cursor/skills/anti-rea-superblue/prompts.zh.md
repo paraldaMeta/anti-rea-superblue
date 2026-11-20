@@ -9,7 +9,8 @@
 | REA 摩擦实验 | `路线 R2，目标 <入口.js>，缺 BLA 就告诉我降级方案` |
 | 真锁 / 防克隆 | `路线 R3，把 <module.js> relocate 到 server-lock，我有 Node 后端` |
 | 全栈 | `路线 R4，模块 <x.js>，后端 localhost:8787，再加固瘦客户端` |
-| 完全无脑 | `你看着办：先 detect-toolchain，再给我推荐 R0–R4 一条，我点头就开跑` |
+| 完全无脑 | `playbook 全自动：skill-intake --route auto --target <路径>，按 plan 逐步执行` |
+| Subagent | `用 AGENT-PLAYBOOK Mode B 起一个子 agent 跑完整流程` |
 | 装完自检 | `跑 verify-skill-install，把结果用人话总结` |
 
 **强度口令（叠加在路线上）：**
