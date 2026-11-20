@@ -11,8 +11,10 @@ cannot do. Defensive use only (protect software you own).
 ```
 superblue scan <path> [--block-level critical|high|moderate] [--json]
 superblue strip-dist <distDir> [--dry-run]
+superblue relocate <module.js> [--out dir] [--api-base URL]
+superblue test-rea <dir-with-js> [--out dir]
 superblue run <target.js> --oracle <oracle.mjs> [--out dir] [--no-tarpit] [--json]
-              [--max-friction] [--docker-verify]
+              [--max-friction] [--docker-verify] [--profile electron]
 ```
 
 Every `run` writes `report.json`, `POLICY.json`, `reaMatrix`, `REFERENCES-SYNTHESIS.md`,

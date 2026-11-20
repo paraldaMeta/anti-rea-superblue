@@ -23,7 +23,9 @@ client layers raise cost; only **server-lock (L1)** addresses behavioural clonin
 |---|---|
 | **HMAKT99/reashield** | `relocate` server stub generator; WASM numeric offload; dynamic import graph |
 | **848gaming/anti-rea** | Platform profiles (Electron fuses, V8 `.jsc`) as `superblue harden --profile electron` |
-| **morluto/rea** | Red-team regression: default-budget vs raised-budget analyzer runs |
+| **morluto/rea** | **`superblue test-rea`** — measured default-budget timeout vs raised-budget bypass |
+| **REAShield** | **`superblue relocate`** — thin client + server skeleton generator |
+| **AREA / 848 anti-rea** | **`--profile electron`** + `ELECTRON-PROFILE.md` fuse checklist |
 
 ## What NOT to copy
 

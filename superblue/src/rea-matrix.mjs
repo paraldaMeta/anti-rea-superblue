@@ -76,6 +76,9 @@ export function buildReaMatrix(report) {
     { repo: "anti-reverse-engineer-anything (AREA)", borrowed: "REA-surface matrix + server-side crown jewels" },
     { repo: "bla-agents / fork", borrowed: "L3 semantic budget breaker (intensity-scaled)" },
     { repo: "server-lock", borrowed: "L1 real lock + active defense patterns (separate package)" },
+    { repo: "REAShield", borrowed: "relocate subcommand (thin client + server skeleton)" },
+    { repo: "morluto/rea", borrowed: "test-rea subcommand (default timeout vs raised bypass)" },
+    { repo: "AREA / 848 anti-rea", borrowed: "--profile electron fuse checklist" },
   ];
 
   return { counters, stillVulnerableTo, surveyBorrowed, generatedFrom: "superblue/rea-matrix.mjs" };

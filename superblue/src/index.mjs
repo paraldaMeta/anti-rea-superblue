@@ -15,6 +15,9 @@ import { applyChaff, estimateReaFriction } from "./chaff.mjs";
 import { policyEnvelope, POLICY_VERSION } from "./policy.mjs";
 import { buildReaMatrix } from "./rea-matrix.mjs";
 import { stripDist } from "./strip-dist.mjs";
+import { relocateFromFile } from "./relocate.mjs";
+import { testRea } from "./rea-test.mjs";
+import { electronProfileScan, electronProfileMarkdown } from "./profile-electron.mjs";
 
 function parseArgs(argv) {
   const a = { _: [] };
@@ -32,6 +35,9 @@ function parseArgs(argv) {
     else if (t === "--max-friction") { a.maxFriction = true; a.chaffLevel = "extreme"; a.intensity = "bankrupt"; }
     else if (t === "--docker-verify") a.dockerVerify = true;
     else if (t === "--dry-run") a.dryRun = true;
+    else if (t === "--profile") a.profile = argv[++i];
+    else if (t === "--api-base") a.apiBase = argv[++i];
+    else if (t === "--skip-raised") a.skipRaised = true;
     else a._.push(t);
   }
   return a;
@@ -79,13 +85,35 @@ async function main() {
     process.exit(0);
   }
 
+  if (cmd === "relocate" && args._[1]) {
+    const outDir = resolve(args.out || join(process.cwd(), "relocate-out"));
+    try {
+      const r = relocateFromFile(resolve(args._[1]), outDir, { apiBase: args.apiBase || "http://localhost:8787" });
+      console.log(`relocate: export=${r.exportName}\n  client: ${r.clientPath}\n  server: ${r.serverPath}\n  notes:  ${r.notePath}`);
+      process.exit(0);
+    } catch (e) { console.error(e.message || e); process.exit(2); }
+  }
+
+  if (cmd === "test-rea" && args._[1]) {
+    const outDir = resolve(args.out || join(process.cwd(), "rea-test-out"));
+    const r = testRea(resolve(args._[1]), outDir, { skipRaised: !!args.skipRaised });
+    console.log(`REA regression → ${outDir}/rea-regression.json`);
+    console.log(`  default: timeout=${r.runs.defaultBudget.timeout} elapsed=${r.runs.defaultBudget.elapsedMs}ms out=${r.runs.defaultBudget.outBytes}B`);
+    if (r.runs.raisedBudget) console.log(`  raised:  ok=${r.runs.raisedBudget.ok} elapsed=${r.runs.raisedBudget.elapsedMs}ms out=${r.runs.raisedBudget.outBytes}B`);
+    console.log(`  verdict: frictionWorks=${r.verdict.frictionWorks} bypassable=${r.verdict.bypassable}`);
+    process.exit(r.exitCode ?? 0);
+  }
+
   if (cmd !== "run" || !args._[1]) {
     console.log(`SuperBlue — layered anti-REA blue-team pipeline (defensive use only)
 
 Usage:
   superblue scan <path> [--block-level critical|high|moderate] [--json]
   superblue strip-dist <distDir> [--dry-run]
+  superblue relocate <module.js> [--out dir] [--api-base URL]   # L1 thin client + server skeleton
+  superblue test-rea <artifact-dir> [--out dir] [--skip-raised]  # measured default vs raised budget
   superblue run <target.js> --oracle <oracle.mjs> [--out <dir>] [--no-tarpit] [--json]
+                              [--profile electron]
                             [--block-level critical|high|moderate] [--timeout-ms <n>]
                             [--intensity stealth|balanced|maximum|bankrupt]
                             [--chaff-level light|heavy|extreme] [--no-chaff]
@@ -123,6 +151,11 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
   // L0 — Contain (on the ORIGINAL)
   const l0 = scan(target);
   report.layers.L0_contain = l0;
+  if ((args.profile || "").toLowerCase() === "electron") {
+    const ep = electronProfileScan(target);
+    report.layers.L0_electron_profile = ep;
+    writeFileSync(join(outDir, "ELECTRON-PROFILE.md"), electronProfileMarkdown(ep));
+  }
   const blockingLeaks = atOrAbove(l0.findings); // F5: at or above configured block level
 
   // L1 — Architect (advice only)
