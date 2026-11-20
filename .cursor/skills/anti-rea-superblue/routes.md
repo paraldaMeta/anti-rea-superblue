@@ -35,12 +35,16 @@ $SB scan "$TARGET" --block-level ${GATE:-critical} --json
 
 ## R1 — production-ship
 
-Prereq: user supplies **oracle** (exported fn + `samples()`). If none, generate a minimal
-`oracles/<name>.mjs` from their exports and confirm with user.
+**Oracle:** auto-draft unless user gave a path:
+
+```bash
+node "$BLA_ROOT/scripts/generate-oracle.mjs" "$TARGET" "<project>/.superblue-oracles/auto.mjs"
+# → user confirms once → ORACLE=.../auto.mjs
+```
 
 ```bash
 OUT="<project>/.superblue-out"
-ORACLE="<path-to-oracle.mjs>"
+ORACLE="<project>/.superblue-oracles/auto.mjs"
 TARGET="<entry.js>"
 
 $SB scan "$TARGET" --block-level critical || exit 2

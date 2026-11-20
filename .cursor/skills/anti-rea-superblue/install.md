@@ -11,7 +11,17 @@ From **your app project root**:
 curl -fsSL https://raw.githubusercontent.com/paraldaMeta/bla-hardened/main/scripts/install-cursor-skill.sh | bash
 ```
 
-Copies the skill to `.cursor/skills/anti-rea-superblue/` and clones `.bla-hardened/` if needed.
+Copies the skill to `.cursor/skills/anti-rea-superblue/` and clones `.bla-hardened/` if needed (default **v0.4.0**).
+
+Verify:
+
+```bash
+bash .bla-hardened/scripts/verify-skill-install.sh
+# or from inside bla-hardened repo:
+bash scripts/verify-skill-install.sh
+```
+
+Chinese copy-paste prompts: [prompts.zh.md](prompts.zh.md).
 
 ## Option B — Copy skill only
 

@@ -23,8 +23,12 @@ Defensive tooling for **raising cost** against REA-class static/agent reverse en
 **安装（在你要保护的应用仓库根目录执行）：**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/paraldaMeta/bla-hardened/main/scripts/install-cursor-skill.sh | bash
+# pinned release (recommended)
+BLA_HARDENED_REF=v0.4.0 curl -fsSL https://raw.githubusercontent.com/paraldaMeta/bla-hardened/main/scripts/install-cursor-skill.sh | bash
+bash .bla-hardened/scripts/verify-skill-install.sh
 ```
+
+一键话术：[`prompts.zh.md`](.cursor/skills/anti-rea-superblue/prompts.zh.md)
 
 详情：[`.cursor/skills/anti-rea-superblue/install.md`](.cursor/skills/anti-rea-superblue/install.md)
 

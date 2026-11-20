@@ -2,7 +2,7 @@
 # Install Anti-ReA Skill: SuperBlue (Cursor skill) into the current project.
 set -euo pipefail
 REPO="${BLA_HARDENED_REPO:-https://github.com/paraldaMeta/bla-hardened.git}"
-REF="${BLA_HARDENED_REF:-main}"
+REF="${BLA_HARDENED_REF:-v0.4.0}"
 ROOT="$(pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -32,5 +32,9 @@ if ! grep -q '\.bla-hardened' "$ROOT/.gitignore" 2>/dev/null; then
   echo "→ Appended suggested entries to .gitignore"
 fi
 
+echo "→ verify-skill-install"
+bash "$ROOT/.bla-hardened/scripts/verify-skill-install.sh" 2>/dev/null || bash "$ROOT/scripts/verify-skill-install.sh" 2>/dev/null || echo "(skip verify — run scripts/verify-skill-install.sh manually)"
+
 echo ""
-echo "Done. In Cursor, use @anti-rea-superblue (Anti-ReA Skill: SuperBlue) — routes in .cursor/skills/anti-rea-superblue/routes.md"
+echo "Done. In Cursor: @anti-rea-superblue — routes: .cursor/skills/anti-rea-superblue/routes.md"
+echo "Pinned ref: $REF (override with BLA_HARDENED_REF=...)"

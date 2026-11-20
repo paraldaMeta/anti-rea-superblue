@@ -40,8 +40,19 @@ test -f .bla-hardened/superblue/src/index.mjs || \
 
 Set `SB="node $BLA_ROOT/superblue/src/index.mjs"`. Require **Node ≥ 20** (22+ for full BLA tarpit).
 
-Full L2/L3 needs `bla-agents` or the hardened fork — see `$BLA_ROOT/REPORT.md`. If missing,
-still run **L0 scan**, **relocate --server-lock**, and **server-lock** demos.
+Pin toolchain (recommended for teams): `export BLA_HARDENED_REF=v0.4.0` before install/clone.
+
+## Step 0.5 — Detect capabilities (always)
+
+```bash
+node "$BLA_ROOT/scripts/detect-toolchain.mjs" --json
+```
+
+- Obey `routeCaps`. If user asked for a blocked route, offer the closest allowed route and explain.
+- Print `notes[]` to the user in plain language.
+- On **fresh install** or user says 装好了/verify: `bash "$BLA_ROOT/scripts/verify-skill-install.sh"`.
+
+If `blaTarpit.ok` is false: **R1/R3/R4 unchanged**; **R2** → downgrade to R1 `--no-tarpit` unless user installs BLA (see `$BLA_ROOT/REPORT.md`).
 
 ## Step 1 — Ask the user (use AskQuestion if available)
 
@@ -59,7 +70,15 @@ backend exists; if **no backend**, default **R0 audit** then explain **R3** need
 ## Step 2 — Execute the route playbook
 
 Open [routes.md](routes.md) and run the matching checklist **in order**. Use the shell;
-do not skip verification steps.
+do not skip verification steps. On errors: [failures.md](failures.md).
+
+**R1 oracle (automatic):** unless user supplied an oracle path,
+
+```bash
+node "$BLA_ROOT/scripts/generate-oracle.mjs" "$TARGET" "<project>/.superblue-oracles/auto.mjs"
+```
+
+Show `entry` + 3 example yields; **one confirmation** from user, then `run`.
 
 After any `run`, read `$OUT/report.json` and `$BLA_ROOT/superblue/ADVERSARIAL-REVIEW.md`
 if the user asks whether they are "safe."
@@ -89,4 +108,6 @@ Template:
 
 ## Install this skill (for humans)
 
-See [install.md](install.md). Skill source is **this directory** in the bla-hardened repo.
+See [install.md](install.md). Copy-paste prompts (中文): [prompts.zh.md](prompts.zh.md).
+
+Skill source is **this directory** in the bla-hardened repo.
