@@ -77,16 +77,23 @@ Two very different things:
   |---|---|
   | **Per-recipient watermark** (unique build id) | a leaked/analyzed copy → the ONE buyer it was issued to |
   | **Tiered honeytokens** (T1 plaintext / T2 base64 / T3 split) | which decoy trips reveals *how deep* they dug; combined with request **velocity** it grades intent: low (casual probe) → medium (real extraction) → high (automated/batch harvesting). Server returns a *generic* failure so the attacker learns nothing |
-  | **Hard device binding** (enforced) | a copied/shared token presented from any other machine is **denied outright** (`device-not-authorized`), not just flagged — the token is cryptographically bound to a device fingerprint at activation |
+  | **Hardware attestation** (proof-of-possession) | the token is bound to a **non-exportable** secure-element key (TPM 2.0 / Apple Secure Enclave / Android StrongBox / WebAuthn). Every call signs a fresh one-time challenge; a copied/stolen token on another machine **cannot sign** → `device-not-authorized`. Stronger than a soft fingerprint, which a header could spoof |
   | **Impossible-travel geo** | the same account used from two far-apart locations faster than a jet (>900 km/h) → shared/stolen credentials |
+  | **Cumulative threat score + auto-ban** | every anomaly adds points (honeytoken grade, PoP failure, impossible travel, sharing); crossing a configurable threshold (`AUTOBAN_THRESHOLD`, default 100) **auto-revokes** the account |
   | **Canary beacon** | the watermarked build was loaded/run in a non-isolated env → phones home with ip/UA (a *signal*, defeated by network isolation) |
-  | **Server-side telemetry** | token sharing / cloned clients (one token, many device fingerprints), abnormal call patterns |
-  | **Revocation (kill switch)** | per-token (`jti`) or per-user; stateless tokens made instantly revocable server-side |
-  | **Forensic report** (`/forensics`) | a graded evidence trail (timestamps, ip, UA, intent level) for your lawyer / a platform abuse team |
+  | **Revocation (kill switch)** | per-token (`jti`) or per-user; stateless tokens made instantly revocable server-side (manual or automatic) |
+  | **Signed forensic report** (`/forensics`) | an Ed25519-**signed**, tamper-evident evidence trail (graded flags, timestamps, ip, score). Verify independently with the public key via `verify-report.mjs`; one changed byte breaks the signature |
 
   ```bash
-  node src/trace-demo.mjs   # two watermarked builds -> trace a leak to the exact buyer
+  node src/trace-demo.mjs                         # full flow: attribute, grade, auto-ban, sign
+  node src/verify-report.mjs builds/forensics.bob.signed.json   # verify an evidence report
   ```
+
+  **Hardware attestation in production** — swap the in-process demo key in
+  `attestation.mjs` for a real secure element: TPM 2.0 (Windows/Linux AIK), Apple
+  Secure Enclave + App Attest / DeviceCheck, Android Key Attestation / StrongBox, or
+  a WebAuthn/FIDO2 platform passkey. The server flow (`/challenge` → sign → verify)
+  is unchanged; only where the private key lives changes.
 
   Honest limit: the *reliable* attribution is **server-side** (the lock already routes
   every use through you). Client-side canaries are a bonus signal, not a guarantee — a

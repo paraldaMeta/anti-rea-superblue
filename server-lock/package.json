@@ -8,6 +8,7 @@
     "keygen": "node src/keygen.mjs",
     "demo": "node src/demo.mjs",
     "trace": "node src/trace-demo.mjs",
+    "verify-report": "node src/verify-report.mjs",
     "server": "node src/server.mjs"
   }
 }

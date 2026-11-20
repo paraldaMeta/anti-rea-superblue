@@ -1,21 +1,31 @@
 // Attribution / traceback proof. Legal active-defense only: detect, attribute,
-// revoke, and build an evidence trail. No hack-back.
-import { writeFileSync, mkdirSync } from "node:fs";
+// auto-ban, and produce a SIGNED evidence trail. No hack-back.
+import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "./server.mjs";
 import { makeClient } from "./client.mjs";
 import { makeWatermark, watermarkClient, buildFingerprint } from "./watermark.mjs";
+import { attest } from "./attestation.mjs";
+import { verifyReport } from "./report.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const PUBLIC_PEM = readFileSync(join(root, "client-dist", "public-key.pem"), "utf8");
 const line = (s) => console.log(s);
-const post = (base, path, obj) => fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(obj) }).then(r => r.json());
+const post = (base, path, obj, headers = {}) => fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(obj) }).then(r => r.json());
 const get = (base, path, headers = {}) => fetch(`${base}${path}`, { headers });
 
 const server = createServer();
 await new Promise((r) => server.listen(0, r));
 const base = `http://localhost:${server.address().port}`;
 mkdirSync(join(root, "builds"), { recursive: true });
+
+// premium call with explicit hardware key (or none, to simulate a thief).
+async function prem(token, hw, input, { dev = "d", geo } = {}) {
+  const { challenge } = await (await get(base, "/challenge")).json();
+  const challengeSig = hw ? attest(challenge, hw.privateKey) : "AA==";
+  return post(base, "/premium", { token, input, challenge, challengeSig }, { "x-device": dev, ...(geo ? { "x-geo": geo } : {}) });
+}
 
 // ---- vendor ships a UNIQUE watermarked build to each customer ----
 line("\n=== VENDOR: per-recipient watermarked builds ===");
@@ -30,68 +40,67 @@ for (const user of ["alice", "bob"]) {
   line(`  ${user}: canaryId=${wm.canaryId}  honeytokens=T1/T2/T3  fp=${builds[user].fp}`);
 }
 
-// ---- legit usage by alice ----
-line("\n=== LEGIT: alice ===");
+// ---- legit usage by alice (hardware-attested) ----
+line("\n=== LEGIT: alice (hardware-attested) ===");
 const aliceKey = (await (await get(base, "/issue?user=alice")).json()).licenseKey;
 const alice = makeClient(base, { deviceId: "alice-laptop" });
 await alice.activate(aliceKey);
 line(`  premium -> ${(await alice.premium("hello")).result}`);
 
-// ---- LEAK SCENARIO 1: tiered honeytokens grade the attacker's intent ----
-const tripHoney = (dev, ua, value) => fetch(`${base}/activate`, { method: "POST", headers: { "content-type": "application/json", "x-device": dev, "user-agent": ua }, body: JSON.stringify({ licenseKey: value, deviceId: dev }) });
-line("\n=== TRACEBACK 1: tiered honeytoken (grades casual vs automated) ===");
-line("  (a) casual: someone greps bob's build, tries the obvious plaintext key (T1)");
-await tripHoney("curious-1", "Chrome", builds.bob.wm.honeytokens[0].value);
-line("  (b) scraper: another attacker base64-decodes the T2 key and tries it");
-await tripHoney("scraper-1", "python-requests", builds.bob.wm.honeytokens[1].value);
-line("  (c) automation: a harvester hammers many keys fast, then the T3 split key");
+// ---- TRACEBACK 1: tiered honeytokens -> grade intent -> AUTO-BAN ----
+const tripHoney = (dev, ua, value) => post(base, "/activate", { licenseKey: value, deviceId: dev }, { "x-device": dev, "user-agent": ua });
+line("\n=== TRACEBACK 1: tiered honeytokens -> intent grading -> auto-ban ===");
+line("  (a) casual   T1 plaintext key"); await tripHoney("curious-1", "Chrome", builds.bob.wm.honeytokens[0].value);
+line("  (b) scraper  T2 base64 key");    await tripHoney("scraper-1", "python-requests", builds.bob.wm.honeytokens[1].value);
+line("  (c) harvester hammers keys + T3 split key");
 for (let i = 0; i < 6; i++) await tripHoney("bot-9", "go-http", "bob.badkey" + i);
 await tripHoney("bot-9", "go-http", builds.bob.wm.honeytokens[2].value);
-line("  -> all attributed to BOB; each graded low / medium / high by tier + velocity.");
+line("  -> all attributed to BOB, graded low/medium/high; cumulative score crosses the line.");
 
-// ---- LEAK SCENARIO 2: bob's watermarked build runs in an un-isolated analysis env ----
-line("\n=== TRACEBACK 2: canary beacon (build executed with network) ===");
-await get(base, `/canary?id=${builds.bob.wm.canaryId}&ev=load`, { "user-agent": "node-analysis-sandbox", "x-device": "sandbox-7" });
-line(`  -> bob's build phoned home from an analysis environment; flagged.`);
+// ---- TRACEBACK 2: canary beacon ----
+line("\n=== TRACEBACK 2: canary beacon ===");
+await get(base, `/canary?id=${builds.bob.wm.canaryId}&ev=load`, { "user-agent": "node-analysis-sandbox" });
+line("  -> bob's build phoned home from an analysis environment.");
 
-const prem = (token, dev, input, geo) => fetch(`${base}/premium`, { method: "POST", headers: { "content-type": "application/json", "x-device": dev, ...(geo ? { "x-geo": geo } : {}) }, body: JSON.stringify({ token, input }) }).then(r => r.json());
+// ---- HARDWARE PROOF-OF-POSSESSION: stolen token can't sign ----
+line("\n=== HARDWARE BINDING (proof-of-possession) ===");
 const aliceToken = alice._token();
+const ownDev = await prem(aliceToken, alice._hardware, "x", { dev: "alice-laptop" });
+line(`  alice w/ her secure-element : ${ownDev.result ? "✅ " + ownDev.result : "❌ " + ownDev.error}`);
+const thief = await prem(aliceToken, null, "x", { dev: "stolen-box" }); // has token, NOT the hardware key
+line(`  thief w/ copied token only  : ${thief.error ? "❌ " + thief.error : "✅ " + thief.result}  (can't sign the challenge -> denied)`);
 
-// ---- HARD DEVICE BINDING: a copied token on another machine is DENIED ----
-line("\n=== HARD DEVICE BINDING (enforced) ===");
-const sameDev = await prem(aliceToken, "alice-laptop", "x");
-line(`  alice's own device       : ${sameDev.result ? "✅ " + sameDev.result : "❌ " + sameDev.error}`);
-const otherDev = await prem(aliceToken, "stolen-box", "x");
-line(`  same token, other machine: ${otherDev.error ? "❌ " + otherDev.error : "✅ " + otherDev.result}  (copied token is useless off the bound device)`);
-
-// ---- IMPOSSIBLE TRAVEL: same device, two far-apart locations in moments ----
+// ---- IMPOSSIBLE TRAVEL ----
 line("\n=== IMPOSSIBLE TRAVEL ===");
-await prem(aliceToken, "alice-laptop", "x", "1.3521,103.8198");   // Singapore
-await prem(aliceToken, "alice-laptop", "x", "40.7128,-74.0060");  // New York, seconds later
-line(`  Singapore -> New York in seconds on one account -> flagged (shared/stolen credentials).`);
+await prem(aliceToken, alice._hardware, "x", { dev: "alice-laptop", geo: "1.3521,103.8198" });   // Singapore
+await prem(aliceToken, alice._hardware, "x", { dev: "alice-laptop", geo: "40.7128,-74.0060" });  // NYC, seconds later
+line("  Singapore -> New York in seconds -> flagged (shared/stolen).");
 
-// ---- RESPONSE: revoke (kill switch) ----
-line("\n=== RESPONSE: revoke ===");
-await post(base, "/revoke", { user: "bob" });
-await post(base, "/revoke", { jti: JSON.parse(Buffer.from(aliceToken.split(".")[0], "base64url")).jti });
-const aliceAfter = await prem(aliceToken, "alice-laptop", "d");
-line(`  bob revoked (kill switch). alice token revoked -> /premium: ${aliceAfter.error ? "❌ " + aliceAfter.error : "✅"}`);
+// ---- SIGNED FORENSIC REPORTS ----
+line("\n=== SIGNED FORENSIC REPORT: bob ===");
+const bobReport = await (await get(base, "/forensics?user=bob")).json();
+line(`  threatScore=${bobReport.report.threatScore}/${bobReport.report.threatThreshold}  autoBanned=${bobReport.report.autoBanned}  revoked=${bobReport.report.revoked}`);
+for (const f of bobReport.report.flags) line(`   • ${f}`);
+const sigCheck = verifyReport(bobReport, PUBLIC_PEM);
+line(`  signature: ${sigCheck.ok ? "✅ valid (" + bobReport.alg + ", signed " + bobReport.signedAt + ")" : "❌ " + sigCheck.reason}`);
+const reportPath = join(root, "builds", "forensics.bob.signed.json");
+writeFileSync(reportPath, JSON.stringify(bobReport, null, 2));
+line(`  saved -> ${reportPath}`);
 
-// ---- EVIDENCE: forensic attribution report ----
-line("\n=== FORENSIC REPORT: bob ===");
-const report = await (await get(base, "/forensics?user=bob")).json();
-line(`  burned=${report.burned}  revoked=${report.revoked}  events=${report.eventCount}`);
-for (const f of report.flags) line(`   • ${f}`);
-line("\n=== FORENSIC REPORT: alice ===");
-const ra = await (await get(base, "/forensics?user=alice")).json();
-line(`  burned=${ra.burned}  revoked=${ra.revoked}  events=${ra.eventCount}`);
-for (const f of ra.flags) line(`   • ${f}`);
+// tamper check
+const tampered = JSON.parse(JSON.stringify(bobReport));
+tampered.report.threatScore = 0; tampered.report.autoBanned = false;
+line(`  tamper (score->0) re-verify: ${verifyReport(tampered, PUBLIC_PEM).ok ? "✅ (BAD)" : "❌ detected — " + verifyReport(tampered, PUBLIC_PEM).reason}`);
+
+line("\n=== SIGNED FORENSIC REPORT: alice ===");
+const aliceReport = await (await get(base, "/forensics?user=alice")).json();
+line(`  threatScore=${aliceReport.report.threatScore}/${aliceReport.report.threatThreshold}  autoBanned=${aliceReport.report.autoBanned}  revoked=${aliceReport.report.revoked}`);
+for (const f of aliceReport.report.flags) line(`   • ${f}`);
 
 line("\n=== WHAT THIS IS (and isn't) ===");
-line("  ✅ detection + attribution + revocation + an evidence trail you can take to");
-line("     a lawyer or platform abuse team. Each leaked build traces to ONE buyer.");
-line("  ❌ NOT hack-back: nothing runs on the attacker's machine; the canary is a");
-line("     plain HTTP ping and a network-isolated analyst defeats it. The durable");
-line("     signal is server-side telemetry, which the L1 lock already routes to you.");
+line("  ✅ hardware-bound auth, graded attribution, automatic bans, and a cryptographically");
+line("     signed evidence trail you can hand to a lawyer or platform abuse team.");
+line("  ❌ NOT hack-back: nothing runs on the attacker's machine. The durable signal is");
+line("     server-side; client canaries are a bonus a network-isolated analyst defeats.");
 
 server.close();

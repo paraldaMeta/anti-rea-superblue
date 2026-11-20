@@ -6,17 +6,21 @@
 // Plus ATTRIBUTION (legal): per-build canaries, honeytokens, server-side telemetry,
 // anomaly detection, and revocation. No hack-back — detection + evidence only.
 import http from "node:http";
-import { createHmac, createHash, timingSafeEqual, randomUUID } from "node:crypto";
+import { createHmac, createHash, timingSafeEqual, randomUUID, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mint, verifyToken } from "./token.mjs";
+import { hwFingerprint, verifyAttestation } from "./attestation.mjs";
+import { signReport } from "./report.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PRIVATE_PEM = readFileSync(join(root, "secrets", "signing-private.pem"), "utf8");
 const PUBLIC_PEM = readFileSync(join(root, "client-dist", "public-key.pem"), "utf8");
 const SERVER_SECRET = readFileSync(join(root, "secrets", "server-secret.txt"), "utf8").trim();
 const TOKEN_TTL_MS = 10 * 60 * 1000;
+const CHALLENGE_TTL_MS = 2 * 60 * 1000;
+const THREAT_THRESHOLD = Number(process.env.AUTOBAN_THRESHOLD || 100); // auto-revoke at/above
 
 // ---- server-only license logic (vendor issues keys; attacker can't mint them) ----
 function keyFor(userId) {
@@ -51,11 +55,34 @@ const state = {
   flags: new Map(),           // user -> [reasons]  (burned / attacker-attributed)
   attemptsByIp: new Map(),    // ip -> [timestamps]  (batch/automation detection)
   lastGeoByUser: new Map(),   // user -> { t, lat, lon }  (impossible-travel)
+  challenges: new Map(),      // nonce -> expiry  (one-time attestation challenges)
+  devices: new Map(),         // hwfp -> attestationPubKeyB64  (registered secure elements)
+  scoreByUser: new Map(),     // user -> cumulative threat score
 };
 const log = (kind, o) => { const e = { t: Date.now(), kind, ...o }; state.events.push(e); return e; };
 const flag = (user, reason) => { if (!user) return; const a = state.flags.get(user) || []; if (!a.includes(reason)) a.push(reason); state.flags.set(user, a); };
 
-const dfpOf = (deviceId) => createHash("sha256").update("dfp:" + (deviceId || "")).digest("hex").slice(0, 16);
+// Cumulative threat scoring with automatic revocation above a configurable line.
+function addScore(user, pts, reason) {
+  if (!user) return;
+  const next = (state.scoreByUser.get(user) || 0) + pts;
+  state.scoreByUser.set(user, next);
+  log("threat.score", { user, added: pts, total: next, reason });
+  if (next >= THREAT_THRESHOLD && !state.revokedUser.has(user)) {
+    state.revokedUser.add(user);
+    flag(user, `AUTO-BANNED: threat score ${next} ≥ ${THREAT_THRESHOLD} (last: ${reason})`);
+    log("autoban", { user, score: next });
+  }
+}
+
+// One-time challenge lifecycle (proof-of-possession).
+function issueChallenge() { const n = randomBytes(24).toString("hex"); state.challenges.set(n, Date.now() + CHALLENGE_TTL_MS); return n; }
+function consumeChallenge(n) {
+  const exp = state.challenges.get(n);
+  if (!exp) return false;
+  state.challenges.delete(n); // one-time use (anti-replay)
+  return Date.now() <= exp;
+}
 
 // Behavioural velocity: how many bad/decoy attempts from this ip in the last 60s.
 function recordAttempt(ip) {
@@ -112,6 +139,11 @@ export function createServer() {
       return json(res, 200, { licenseKey: keyFor(url.searchParams.get("user") || "anon") });
     }
 
+    // One-time challenge for hardware proof-of-possession.
+    if (req.method === "GET" && url.pathname === "/challenge") {
+      return json(res, 200, { challenge: issueChallenge(), ttlMs: CHALLENGE_TTL_MS });
+    }
+
     // Vendor-side: register a per-recipient watermarked build (canary + honeytoken).
     if (req.method === "POST" && url.pathname === "/register-build") {
       const { user, canaryId, honeytokens } = await body(req);
@@ -134,7 +166,7 @@ export function createServer() {
 
     // Activation: license -> short-lived, revocable, device-bound token.
     if (req.method === "POST" && url.pathname === "/activate") {
-      const { licenseKey, deviceId } = await body(req);
+      const { licenseKey, deviceId, attestationPubKey, challenge, challengeSig } = await body(req);
 
       // Honeytoken trap: a legit user NEVER has this. Presenting it = scraped the binary.
       if (state.honeytokens.has(licenseKey)) {
@@ -143,6 +175,7 @@ export function createServer() {
         const grade = gradeHoneytoken(tier, velocity);
         log("honeytoken.tripped", { plantedIn: owner, tier, tierName: name, velocity, grade: grade.level, ...meta });
         flag(owner, `honeytoken T${tier}(${name}) tripped from ip=${meta.ip} — [${grade.level}] ${grade.intent} (velocity=${velocity}/min)`);
+        addScore(owner, grade.score, `honeytoken-T${tier}`);
         return json(res, 403, { error: "invalid-license" }); // look identical to a normal failure
       }
 
@@ -150,41 +183,50 @@ export function createServer() {
       if (!userId) { recordAttempt(meta.ip); log("activate.denied", { ...meta }); return json(res, 403, { error: "invalid-license" }); }
       if (state.revokedUser.has(userId)) { log("activate.revoked-user", { user: userId, ...meta }); return json(res, 403, { error: "revoked" }); }
 
-      // Hardware-style HARD binding: token is locked to this device fingerprint.
-      const dfp = dfpOf(deviceId);
+      // Hardware attestation: prove possession of a non-exportable secure-element key.
+      if (!attestationPubKey || !verifyAttestation(challenge, attestationPubKey, challengeSig) || !consumeChallenge(challenge)) {
+        log("activate.attestation-failed", { user: userId, ...meta });
+        return json(res, 401, { error: "attestation-failed" });
+      }
+      const hwfp = hwFingerprint(attestationPubKey);
+      state.devices.set(hwfp, attestationPubKey); // register this secure element
+
       const jti = randomUUID();
-      const token = mint({ jti, sub: deviceId || "unbound", dfp, user: userId, scope: "premium", iat: Date.now(), exp: Date.now() + TOKEN_TTL_MS }, PRIVATE_PEM);
-      log("activate.ok", { user: userId, jti, device: deviceId, dfp, ...meta });
+      const token = mint({ jti, sub: deviceId || "unbound", hwfp, user: userId, scope: "premium", iat: Date.now(), exp: Date.now() + TOKEN_TTL_MS }, PRIVATE_PEM);
+      log("activate.ok", { user: userId, jti, device: deviceId, hwfp, ...meta });
       return json(res, 200, { token, expiresInMs: TOKEN_TTL_MS });
     }
 
     // Gated capability: value produced HERE, with revocation + anomaly detection.
     if (req.method === "POST" && url.pathname === "/premium") {
-      const { token, input } = await body(req);
+      const { token, input, challenge, challengeSig } = await body(req);
       const v = verifyToken(token, PUBLIC_PEM);
       if (!v.ok || v.claims.scope !== "premium") { log("premium.unauthorized", { reason: v.reason, ...meta }); return json(res, 401, { error: "unauthorized", reason: v.reason }); }
-      const { jti, user, sub, dfp } = v.claims;
+      const { jti, user, hwfp } = v.claims;
 
       // Revocation (kill switch) — stateless tokens made revocable server-side.
       if (state.revokedJti.has(jti) || state.revokedUser.has(user)) { log("premium.revoked", { user, jti, ...meta }); return json(res, 403, { error: "revoked" }); }
 
-      // HARD device binding (enforced): the presenting device must match the bound
-      // fingerprint. A copied token on another machine is denied outright, not just flagged.
-      const presentedDfp = dfpOf(meta.dev);
-      if (dfp && meta.dev && presentedDfp !== dfp) {
-        flag(user, `device mismatch: token bound to ${dfp} presented from ${presentedDfp} (ip=${meta.ip}) — copied token / cloned client, DENIED`);
-        log("anomaly.device-mismatch", { user, jti, boundDfp: dfp, presentedDfp, ...meta });
+      // HARDWARE proof-of-possession (enforced): the caller must sign a fresh one-time
+      // challenge with the secure-element key the token is bound to. A copied token on
+      // another machine CANNOT sign (the private key never left the enclave) -> denied.
+      const boundPub = state.devices.get(hwfp);
+      const popOk = boundPub && verifyAttestation(challenge, boundPub, challengeSig) && consumeChallenge(challenge);
+      if (!popOk) {
+        flag(user, `proof-of-possession failed: token bound to secure-element ${hwfp} presented without its hardware key (ip=${meta.ip}) — copied/stolen token, DENIED`);
+        log("anomaly.pop-failed", { user, jti, hwfp, ...meta });
+        addScore(user, 60, "pop-failed");
         return json(res, 403, { error: "device-not-authorized" });
       }
 
-      // Token-sharing telemetry (same machine identity reused is fine; this catches
-      // fingerprint drift even when binding isn't enforced via headers).
-      const fp = meta.dev || sub;
+      // Token-sharing telemetry: one token observed from many device identities.
+      const fp = meta.dev || hwfp;
       const set = state.tokenDevices.get(jti) || new Set();
       set.add(fp); state.tokenDevices.set(jti, set);
       if (set.size > 1) {
         flag(user, `token seen on ${set.size} device fingerprints (${[...set].join(", ")}) — key sharing / cloned client`);
         log("anomaly.token-sharing", { user, jti, devices: [...set], ...meta });
+        addScore(user, 40, "token-sharing");
       }
 
       // Impossible-travel: same user active from two places faster than a jet.
@@ -192,7 +234,11 @@ export function createServer() {
       if (it) {
         flag(user, `impossible travel: ${it.km}km in moments (~${it.kmh}km/h) — account used from two locations, likely shared/stolen`);
         log("anomaly.impossible-travel", { user, jti, ...it, ...meta });
+        addScore(user, 70, "impossible-travel");
       }
+
+      // A ban may have just fired mid-request.
+      if (state.revokedUser.has(user)) return json(res, 403, { error: "revoked" });
 
       log("premium.ok", { user, jti, ...meta });
       return json(res, 200, { result: premiumTransform(input), servedTo: user });
@@ -207,18 +253,23 @@ export function createServer() {
       return json(res, 200, { ok: true });
     }
 
-    // Forensics: attribution report for a user (the evidence trail for legal action).
+    // Forensics: SIGNED attribution report for a user (tamper-evident evidence trail).
     if (req.method === "GET" && url.pathname === "/forensics") {
       const user = url.searchParams.get("user");
       const evts = state.events.filter((e) => e.user === user || e.plantedIn === user);
-      return json(res, 200, {
+      const report = {
         user,
-        flags: state.flags.get(user) || [],
+        threatScore: state.scoreByUser.get(user) || 0,
+        threatThreshold: THREAT_THRESHOLD,
         burned: (state.flags.get(user) || []).length > 0,
         revoked: state.revokedUser.has(user),
+        autoBanned: evts.some((e) => e.kind === "autoban"),
+        flags: state.flags.get(user) || [],
         eventCount: evts.length,
         events: evts.slice(-50),
-      });
+        generatedAt: new Date().toISOString(),
+      };
+      return json(res, 200, signReport(report, PRIVATE_PEM)); // Ed25519-signed envelope
     }
 
     json(res, 404, { error: "not-found" });
