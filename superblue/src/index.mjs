@@ -3,12 +3,15 @@
 // Contain (L0) -> Architect (L1, advice) -> Harden+Verify (L2) -> Tarpit (L3) -> Re-scan.
 // Philosophy: evidence over promises. Every layer reports what it measurably did;
 // nothing here claims a target becomes "unbreakable".
-import { mkdirSync, copyFileSync, writeFileSync, existsSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { mkdirSync, copyFileSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { scan } from "./scan.mjs";
 import { harden, esbuildAvailable } from "./harden.mjs";
 import { tarpit, tarpitAvailable } from "./tarpit.mjs";
 import { verifyEquivalence } from "./verify.mjs";
+import { applyChaff, estimateReaFriction } from "./chaff.mjs";
+import { policyEnvelope, POLICY_VERSION } from "./policy.mjs";
 
 function parseArgs(argv) {
   const a = { _: [] };
@@ -20,9 +23,19 @@ function parseArgs(argv) {
     else if (t === "--json") a.json = true;
     else if (t === "--block-level") a.blockLevel = argv[++i];
     else if (t === "--timeout-ms") a.timeoutMs = parseInt(argv[++i], 10);
+    else if (t === "--intensity") a.intensity = argv[++i];
+    else if (t === "--chaff-level") a.chaffLevel = argv[++i];
+    else if (t === "--no-chaff") a.noChaff = true;
+    else if (t === "--max-friction") { a.maxFriction = true; a.chaffLevel = "extreme"; a.intensity = "bankrupt"; }
     else a._.push(t);
   }
   return a;
+}
+
+const here = join(dirname(fileURLToPath(import.meta.url)), "..");
+function readClientConstitution() {
+  const p = join(here, "templates", "CLIENT-CONSTITUTION.md");
+  return existsSync(p) ? readFileSync(p, "utf8") : "# CLIENT-CONSTITUTION missing\n";
 }
 
 const L1_ADVICE = [
@@ -41,16 +54,22 @@ async function main() {
 Usage:
   superblue run <target.js> --oracle <oracle.mjs> [--out <dir>] [--no-tarpit] [--json]
                             [--block-level critical|high|moderate] [--timeout-ms <n>]
+                            [--intensity stealth|balanced|maximum|bankrupt]
+                            [--chaff-level light|heavy|extreme] [--no-chaff]
+                            [--max-friction]
 
 Gate (F5): --block-level sets the leak severity that FAILS the build (default: critical).
-           Exit code 2 when the containment gate fails or an oracle check regresses.
+Friction: L2.5 chaff (default heavy when L3 on) + L3 tarpit burn REA DEFAULT semantic budgets.
+          --max-friction = chaff extreme + BLA bankrupt (still beaten by raised budgets — honest).
 Verify (F4): equivalence runs in an isolated child process with a wall-clock timeout.
+Policy: report includes policy v${POLICY_VERSION} envelope (AIHOT-style versioned rules).
 
 Layers:
   L0 Contain    leak/secret/source-map scan (gate)         [always]
   L1 Architect  server-side advice (printed; not applied)  [always]
   L2 Harden     esbuild minify+mangle, verify equivalence  ${esbuildAvailable() ? "[ready]" : "[fallback: strip-only]"}
-  L3 Tarpit     BLA-fork bankrupt, verify equivalence      ${tarpitAvailable() ? "[ready]" : "[unavailable]"}
+  L2.5 Chaff    inert semantic budget expander (pre-L3)    [on when L3 on, unless --no-chaff]
+  L3 Tarpit     BLA-fork, verify equivalence               ${tarpitAvailable() ? "[ready]" : "[unavailable]"}
   re-scan       Contain scan on final artifact
 
 The oracle module exports { entry, samples(), equals? } for behavioural checks.`);
@@ -86,11 +105,26 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
   } else l2.equivalence = { skipped: "no --oracle; cannot verify behaviour" };
   report.layers.L2_harden = l2;
 
-  // L3 — Tarpit + verify (on the L2 output)
+  const tarpitOn = !args.noTarpit && tarpitAvailable();
+  const chaffLevel = args.chaffLevel || (args.maxFriction ? "extreme" : "heavy");
+  const tarpitIntensity = args.intensity || "bankrupt";
+  let tarpitInput = hardenedPath;
+
+  // L2.5 — Semantic chaff (before L3; inert dead code)
+  if (tarpitOn && !args.noChaff) {
+    const chaffPath = join(outDir, `${name}.L2.5.mjs`);
+    const l25 = applyChaff(hardenedPath, chaffPath, chaffLevel);
+    report.layers.L2_5_chaff = l25;
+    tarpitInput = chaffPath;
+  } else {
+    report.layers.L2_5_chaff = { applied: false, note: args.noChaff ? "disabled via --no-chaff" : "skipped (no L3)" };
+  }
+
+  // L3 — Tarpit + verify
   let finalArtifact = hardenedPath;
-  if (!args.noTarpit && tarpitAvailable()) {
+  if (tarpitOn) {
     const tarpitPath = join(outDir, `${name}.L3.js`);
-    const l3 = { ...tarpit(hardenedPath, tarpitPath) };
+    const l3 = { ...tarpit(tarpitInput, tarpitPath, { intensity: tarpitIntensity }) };
     if (l3.applied && args.oracle) {
       try { l3.equivalence = await verifyEquivalence(target, tarpitPath, resolve(args.oracle), { timeoutMs: args.timeoutMs }); }
       catch (e) { l3.equivalence = { pass: false, error: String(e) }; }
@@ -122,7 +156,9 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
       ? `Final (L3) artifact scans as risk=${report.layers.reScan.risk}: BLA's tarpit injects a content-laden poison source map + decoy tokens. They carry no real logic, but any generic CI secret/sourcemap scanner (and this one) cannot tell them from a real leak and WILL fail the build. Ship the --no-tarpit (L0+L2) output for a scanner-clean release.`
       : undefined,
     honestNote: "SuperBlue raises REA-class decompilation cost and removes leaks; it does NOT make the target unbreakable, and does NOT stop behavioural cloning (that needs L1 server-side).",
+    reaFrictionEstimate: estimateReaFriction(report.layers.L2_5_chaff, report.layers.L3_tarpit),
   };
+  report.policy = policyEnvelope(report);
 
   // CI exit code: fail when containment gate fails, or when an oracle WAS given
   // and behaviour was not preserved. (No oracle → behaviour is simply unchecked.)
@@ -130,6 +166,8 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
   const exitCode = (!report.verdict.containmentPassed || behaviourFailed) ? 2 : 0;
   report.verdict.exitCode = exitCode;
   writeFileSync(join(outDir, "report.json"), JSON.stringify(report, null, 2));
+  writeFileSync(join(outDir, "POLICY.json"), JSON.stringify(report.policy, null, 2));
+  writeFileSync(join(outDir, "CLIENT-CONSTITUTION.md"), readClientConstitution());
 
   if (args.json) { console.log(JSON.stringify(report, null, 2)); process.exit(exitCode); }
 
@@ -140,9 +178,13 @@ The oracle module exports { entry, samples(), equals? } for behavioural checks.`
   for (const f of l0.findings.slice(0, 8)) console.log(`             - [${f.severity}] ${f.kind} @ ${f.where}`);
   if (blockingLeaks.length) console.log(`             ⚠️  FIX BLOCKING LEAKS FIRST (≥${blockLevelName}) — a tarpit on a leaked source map is pointless.`);
   console.log(`L1 Architect: ${L1_ADVICE[0]}`);
+  const l25 = report.layers.L2_5_chaff;
   console.log(`L2 Harden  : ${l2.tool}  ${l2.beforeBytes}B→${l2.afterBytes}B  idReduction=${l2.identifierReductionPct ?? "n/a"}%  equiv=${S(l2.equivalence?.pass)}  shipped-logic-clean=${S(l2.containment.risk === "baseline")}`);
+  console.log(`L2.5 Chaff : ${l25.applied ? `${l25.level} ×${l25.sizeMultiplier}  decoys=${l25.decoys} alias=${l25.aliasDepth}` : l25.note}`);
   const l3 = report.layers.L3_tarpit;
+  const fr = report.verdict.reaFrictionEstimate;
   console.log(`L3 Tarpit  : ${l3.applied ? `${l3.tool}  ×${l3.sizeMultiplier} size  equiv=${S(l3.equivalence?.pass)}` : l3.note}`);
+  if (fr) console.log(`REA est.   : illustrative semantic pressure ~${fr.illustrativeSemanticUnits} (${fr.note.split(".")[0]})`);
   console.log(`Re-scan    : risk=${report.layers.reScan.risk}  findings=${report.layers.reScan.findings.length}  (poison-signature=${report.layers.reScan.poisonSignatureFindings})`);
   console.log(`\nVerdict    : containment ${S(report.verdict.containmentPassed)}  shipped-logic-clean ${S(report.verdict.shippedLogicClean)}  behaviour ${S(report.verdict.behaviourPreserved)}`);
   if (report.verdict.scannerWarning) console.log(`             ⚠️  ${report.verdict.scannerWarning}`);

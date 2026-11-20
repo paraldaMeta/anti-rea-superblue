@@ -20,15 +20,17 @@ export function tarpitAvailable() {
   return existsSync(BLA_CLI) && existsSync(NODE);
 }
 
-export function tarpit(inPath, outPath) {
+export function tarpit(inPath, outPath, { intensity = "bankrupt" } = {}) {
   if (!tarpitAvailable()) return { applied: false, note: "bla fork cli not found; L3 skipped" };
   const node = existsSync(NODE) ? NODE : "node";
-  const r = spawnSync(node, [BLA_CLI, "protect", inPath, "-o", outPath], { cwd: BLA_CWD, encoding: "utf8" });
+  const allowed = ["stealth", "balanced", "maximum", "bankrupt"];
+  const level = allowed.includes(intensity) ? intensity : "bankrupt";
+  const r = spawnSync(node, [BLA_CLI, "protect", inPath, "-o", outPath, "--intensity", level], { cwd: BLA_CWD, encoding: "utf8" });
   if (r.status !== 0 || !existsSync(outPath)) {
     return { applied: false, note: "bla protect failed", stderr: (r.stderr || "").slice(0, 400) };
   }
   const beforeBytes = statSync(inPath).size;
   const afterBytes = statSync(outPath).size;
   const mult = beforeBytes ? +(afterBytes / beforeBytes).toFixed(1) : null;
-  return { applied: true, tool: "bla-agents-hardened protect (bankrupt)", beforeBytes, afterBytes, sizeMultiplier: mult };
+  return { applied: true, tool: `bla-agents-hardened protect (${level})`, intensity: level, beforeBytes, afterBytes, sizeMultiplier: mult };
 }

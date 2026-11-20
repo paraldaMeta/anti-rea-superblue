@@ -17,7 +17,8 @@ superblue run <target.js> --oracle <oracle.mjs> [--out dir] [--no-tarpit] [--jso
 | **L0 Contain** | Scan for source maps (incl. inline base64), secrets/keys, `.env`/`.git`, debug symbols, high-entropy material. **Decoy-aware**: tells a *real* embedded-source leak from an intentional poison map. Hard-gates on CRITICAL. | **Permanent** — a removed leak cannot be "un-raised" | reaproof, anti-rea-forge |
 | **L1 Architect** | Prints the only advice that defeats a *behavioural* rebuilder (Craft Anything-class): move the secret/authorization decision server-side. Not applied automatically — it's a design change. | **Permanent** (architectural) | threat models across DeRea / AREA |
 | **L2 Harden** | `esbuild --minify`: mangle locals, drop comments, strip source-map refs, preserve exports — then **verify behavioural equivalence** against your oracle. | **Durable friction** | DeRea (harden + verify) |
-| **L3 Tarpit** | Wrap the hardened BLA fork (`bankrupt`). Speed bump for a **default-budget** REA only. | **Weak** — one `--semantic-precision` raise defeats it (measured) | BLA / this repo's fork |
+| **L2.5 Chaff** | Append inert semantic budget expanders (alias/getter/decoy labyrinth) before L3. | **Weak** — same as L3; stacks with tarpit | SuperBlue |
+| **L3 Tarpit** | BLA fork (`--intensity bankrupt`, tuned deeper in this repo). Speed bump for **default-budget** REA only. | **Weak** — one `--semantic-precision` raise defeats it (measured) | BLA / this repo's fork |
 | **Re-scan** | Contain-scan the final artifact; separate real leaks from intentional L3 decoys. | — | — |
 
 ### Honest layer economics (measured in this repo)
@@ -42,8 +43,11 @@ superblue run <target.js> --oracle <oracle.mjs> [--out dir] [--no-tarpit] [--jso
 
 - **Production ship:** `--no-tarpit` → L0 gate + L2 mangle + equivalence. Scanner-clean,
   durable readability reduction, verified behaviour.
-- **Max friction vs casual REA:** default (adds L3). Expect ~1000× size tax and CI
-  secret-scanner noise from the decoys.
+- **Max friction vs casual REA:** `--max-friction` (L2.5 extreme chaff + L3 bankrupt).
+  Expect large bundle growth and CI secret-scanner noise from decoys — ship `--no-tarpit`
+  for production.
+- **Policy + thin client:** each run writes `POLICY.json` + `CLIENT-CONSTITUTION.md`
+  (versioned rules, AIHOT-inspired).
 
 ## The oracle
 
