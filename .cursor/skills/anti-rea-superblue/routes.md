@@ -1,4 +1,4 @@
-# Routes & intensity presets
+# Anti-ReA Skill: SuperBlue — routes & intensity
 
 Pick **one route** per request. Intensity is baked into the route (not a separate BLA knob
 unless user overrides).

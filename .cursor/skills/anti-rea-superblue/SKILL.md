@@ -1,15 +1,16 @@
 ---
-name: anti-rea-protect
+name: anti-rea-superblue
 description: >-
-  Run the bla-hardened / SuperBlue + server-lock pipeline on the user's project.
-  Guides intensity (audit, production ship, max friction, server-lock architect)
-  and executes scan, harden, relocate, and verification. Use when the user wants
-  anti-REA protection, reverse-engineering friction, license logic moved server-side,
-  Craft-style clone resistance, or mentions @anti-rea-protect, SuperBlue, or bla-hardened.
+  Anti-ReA Skill: SuperBlue — run the bla-hardened pipeline (SuperBlue L0–L3 + server-lock)
+  on the user's project with route presets R0–R4. Use for anti-REA hardening, reverse-engineering
+  friction, server-side license lock, Craft clone resistance, or when the user mentions
+  @anti-rea-superblue, Anti-ReA Skill, SuperBlue, or bla-hardened.
 disable-model-invocation: true
 ---
 
-# anti-rea-protect (from [bla-hardened](https://github.com/paraldaMeta/bla-hardened))
+# Anti-ReA Skill: SuperBlue
+
+Powered by [bla-hardened](https://github.com/paraldaMeta/bla-hardened) (SuperBlue + server-lock).
 
 **Read this skill end-to-end once per task.** The user should only pick a **route** and
 **target**; you run commands, copy artifacts, and report honestly.

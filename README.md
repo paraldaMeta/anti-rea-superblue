@@ -8,9 +8,9 @@ Defensive tooling for **raising cost** against REA-class static/agent reverse en
 | [`server-lock/`](server-lock/) | L1 authority: license minting, signed tokens, server-only premium logic + attribution (no hack-back) |
 | [`sample/`](sample/) | Tiny targets for scan/harden/relocate demos |
 
-## Cursor Skill（无脑路线）
+## Anti-ReA Skill: SuperBlue
 
-不想记 CLI 时，把 **Skill** 装进你自己的项目，对话里 `@anti-rea-protect`，选路线即可：
+不想记 CLI 时，把 Skill 装进你自己的项目，对话里 **`@anti-rea-superblue`**，选路线即可：
 
 | 路线 | 含义 |
 |------|------|
@@ -26,7 +26,7 @@ Defensive tooling for **raising cost** against REA-class static/agent reverse en
 curl -fsSL https://raw.githubusercontent.com/paraldaMeta/bla-hardened/main/scripts/install-cursor-skill.sh | bash
 ```
 
-详情：[`.cursor/skills/anti-rea-protect/install.md`](.cursor/skills/anti-rea-protect/install.md)
+详情：[`.cursor/skills/anti-rea-superblue/install.md`](.cursor/skills/anti-rea-superblue/install.md)
 
 ## Quick start (CLI)
 
