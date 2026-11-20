@@ -12,6 +12,7 @@ unless user overrides).
 | **R2 friction-lab** | Internal REA cost experiment | `run --max-friction`, optional `test-rea` | Beaten by raised REA budget |
 | **R3 server-lock** | Real lock / licensing / premium API | `relocate --server-lock` + vendor `server-lock/` | Stops static + Craft **if** capability is server-only |
 | **R4 full-stack** | SaaS / licensed desktop with bundle | **R3** then **R1** on thin client | Moat on client + lock on server |
+| **R8 strength-8** | **Default when strength tier ≥ 8** | **R4** + `strength-8-check` (score ≥ 8) | Operational **~8/10** vs client capability theft |
 
 **No backend / static-only product:** cannot do R3/R4 without adding Workers/Lambda/etc.
 Say so before scaffolding. Offer R0+R1 on assets only.

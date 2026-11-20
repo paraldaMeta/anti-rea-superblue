@@ -39,6 +39,13 @@ only a **public key** (safe to leak) and a network request.
 - `src/demo.mjs` — end-to-end + four attacks (forge license, forge token, patch
   gate, clone client) that all fail.
 
+## Strength tier 8 (default)
+
+`server-lock/src/config.mjs` — `STRENGTH_TIER=8` (default): **5 min** tokens, **90s** challenges,
+**autoban @50**. Override with env `TOKEN_TTL_MS`, `CHALLENGE_TTL_MS`, `AUTOBAN_THRESHOLD`.
+
+Posture score: `node ../scripts/strength-8-check.mjs <your-module.js> --json` (from repo root).
+
 ## Run
 
 ```bash

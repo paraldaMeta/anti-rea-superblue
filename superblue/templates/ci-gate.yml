@@ -1,0 +1,26 @@
+# Copy to your app: .github/workflows/anti-rea-gate.yml
+name: anti-rea-strength-8
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  strength-8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Bootstrap bla-hardened
+        run: |
+          test -d .bla-hardened || git clone --depth 1 --branch v0.4.2 https://github.com/paraldaMeta/bla-hardened.git .bla-hardened
+      - name: L0 scan shipped or src
+        run: |
+          TARGET="${ANTI_REA_TARGET:-src}"
+          node .bla-hardened/superblue/src/index.mjs scan "$TARGET" --block-level critical
+      - name: Strength-8 posture (optional full stack)
+        continue-on-error: true
+        run: node .bla-hardened/scripts/strength-8-check.mjs "${ANTI_REA_TARGET:-.}" --json

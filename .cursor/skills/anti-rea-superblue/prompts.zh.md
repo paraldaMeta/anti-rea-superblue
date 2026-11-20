@@ -7,6 +7,7 @@
 | 先看看有没有泄漏 | `路线 R0，目标 <路径>，门禁 critical` |
 | 生产发货（默认） | `路线 R1 生产，目标 <入口.js>，你自动写 oracle 我确认后跑` |
 | REA 摩擦实验 | `路线 R2，目标 <入口.js>，缺 BLA 就告诉我降级方案` |
+| 强度 8（推荐） | `强度8 playbook 全自动，target <module.js>` |
 | 真锁 / 防克隆 | `路线 R3，把 <module.js> relocate 到 server-lock，我有 Node 后端` |
 | 全栈 | `路线 R4，模块 <x.js>，后端 localhost:8787，再加固瘦客户端` |
 | 完全无脑 | `playbook 全自动：skill-intake --route auto --target <路径>，按 plan 逐步执行` |

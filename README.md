@@ -24,7 +24,7 @@ Defensive tooling for **raising cost** against REA-class static/agent reverse en
 
 ```bash
 # pinned release (recommended)
-BLA_HARDENED_REF=v0.4.1 curl -fsSL https://raw.githubusercontent.com/paraldaMeta/bla-hardened/main/scripts/install-cursor-skill.sh | bash
+BLA_HARDENED_REF=v0.4.2 curl -fsSL https://raw.githubusercontent.com/paraldaMeta/bla-hardened/main/scripts/install-cursor-skill.sh | bash
 bash .bla-hardened/scripts/verify-skill-install.sh
 ```
 

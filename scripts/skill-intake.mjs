@@ -20,7 +20,13 @@ function blaRoot() {
 }
 
 function parseArgs(argv) {
-  const o = { route: "auto", target: "", gate: "critical", backend: null };
+  const o = {
+    route: "auto",
+    target: "",
+    gate: "critical",
+    backend: null,
+    strength: Number(process.env.STRENGTH_TIER || 8) >= 8 ? 8 : 0,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--route") o.route = argv[++i];
@@ -28,6 +34,7 @@ function parseArgs(argv) {
     else if (a === "--gate") o.gate = argv[++i];
     else if (a === "--backend") o.backend = true;
     else if (a === "--no-backend") o.backend = false;
+    else if (a === "--strength") o.strength = Number(argv[++i]) || 8;
     else if (a === "--json") o.json = true;
     else if (a === "--help") o.help = true;
   }
@@ -44,17 +51,23 @@ function runDetect(root) {
   return JSON.parse(r.stdout);
 }
 
-function pickRoute({ route, target, backend }, detect) {
+function pickRoute({ route, target, backend, strength }, detect) {
   const caps = detect.routeCaps || {};
   if (route !== "auto") return route.toUpperCase();
 
   const hasBackend =
     backend === true ||
     (backend === null && existsSync(join(process.cwd(), "server-lock", "src", "server.mjs")));
+
   if (!target) return caps.R0 ? "R0" : "R0";
-  if (!hasBackend && (existsSync(target) && target.endsWith(".js"))) {
-    return caps.R1 ? "R1" : caps.R0;
+
+  // Strength 8 default: architectural lock + thin client ship (not R1-only friction).
+  if (strength >= 8 && target) {
+    if (caps.R3) return "R8";
+    return caps.R1 ? "R1" : "R0";
   }
+
+  if (!hasBackend && existsSync(target) && target.endsWith(".js")) return caps.R1 ? "R1" : caps.R0;
   if (hasBackend && target) return caps.R4 ? "R4" : caps.R3 ? "R3" : "R1";
   return "R0";
 }
@@ -87,6 +100,17 @@ function stepPlan(route, target, gate, root) {
       steps.push({ id: "keygen", cmd: `node server-lock/src/keygen.mjs`, cwd: "server-lock", required: true, note: "copy server-lock from BLA_ROOT first if missing" });
       steps.push({ id: "demo", cmd: `node server-lock/src/demo.mjs`, cwd: "server-lock", required: true });
       break;
+    case "R8": {
+      const r4 = stepPlan("R4", target, gate, root);
+      steps.push(...r4.steps.filter((s) => s.id !== "detect" && s.id !== "verify"));
+      steps.push({
+        id: "strength-8",
+        cmd: `STRENGTH_TIER=8 node ${join(root, "scripts/strength-8-check.mjs")} ${JSON.stringify(T)} --json`,
+        required: true,
+        note: "score must be >= 8/10",
+      });
+      break;
+    }
     case "R4":
       steps.push({ id: "relocate", cmd: `${SB} relocate ${JSON.stringify(T)} --server-lock`, required: true });
       steps.push({ id: "vendor-lock", cmd: `test -d server-lock/src/server.mjs || cp -R ${JSON.stringify(join(root, "server-lock"))} ./server-lock`, required: true });
@@ -113,13 +137,13 @@ function stepPlan(route, target, gate, root) {
 }
 
 function capRoute(route, caps) {
-  const key = route;
+  const key = route === "R8" ? "R3" : route;
   if (caps[key] === false) {
-    const fallbacks = { R2: "R1", R4: "R3", R3: "R0", R1: "R0" };
-    const fb = fallbacks[key] || "R0";
-    return { route: fb, downgraded: true, reason: `${key} blocked by toolchain` };
+    const fallbacks = { R2: "R1", R4: "R3", R8: "R1", R3: "R0", R1: "R0" };
+    const fb = fallbacks[route] || "R0";
+    return { route: fb, downgraded: true, reason: `${route} blocked by toolchain` };
   }
-  return { route: key, downgraded: false };
+  return { route, downgraded: false };
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -136,7 +160,8 @@ route = capped.route;
 
 const plan = {
   skill: "Anti-ReA Skill: SuperBlue",
-  version: "0.4.1",
+  version: "0.4.2",
+  strengthTier: args.strength,
   blaRoot: root,
   route,
   routeRequested: args.route,

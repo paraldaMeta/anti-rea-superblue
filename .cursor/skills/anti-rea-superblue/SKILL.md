@@ -64,8 +64,9 @@ Ask **once** unless the user already answered in the same thread:
 | **Target** | File, directory, or `dist/` to scan/harden |
 | **Gate strictness** | `critical` (default) · `high` · `moderate` |
 
-If they say "无脑 / 你看着办 / playbook / 全自动": run **[AGENT-PLAYBOOK.md](AGENT-PLAYBOOK.md) Mode A**
-(`skill-intake.mjs --route auto`) then execute `plan.steps` — do not improvise flags.
+If they say "无脑 / 你看着办 / playbook / 全自动 / 强度8": run **[AGENT-PLAYBOOK.md](AGENT-PLAYBOOK.md) Mode A**
+with `STRENGTH_TIER=8` and `skill-intake.mjs --route auto --strength 8` → default route **R8**.
+Execute `plan.steps`; exit must pass `strength-8-check` (≥ 8/10). See `$BLA_ROOT/superblue/templates/STRENGTH-8.md`.
 
 ## Step 2 — Execute the route playbook
 

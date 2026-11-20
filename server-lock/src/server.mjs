@@ -14,14 +14,13 @@ import { mint, verifyToken } from "./token.mjs";
 import { hwFingerprint, verifyAttestation } from "./attestation.mjs";
 import { signReport } from "./report.mjs";
 import { premiumViaRelocated } from "./relocate-bridge.mjs";
+import { TOKEN_TTL_MS, CHALLENGE_TTL_MS, THREAT_THRESHOLD, STRENGTH_TIER } from "./config.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PRIVATE_PEM = readFileSync(join(root, "secrets", "signing-private.pem"), "utf8");
 const PUBLIC_PEM = readFileSync(join(root, "client-dist", "public-key.pem"), "utf8");
 const SERVER_SECRET = readFileSync(join(root, "secrets", "server-secret.txt"), "utf8").trim();
-const TOKEN_TTL_MS = 10 * 60 * 1000;
-const CHALLENGE_TTL_MS = 2 * 60 * 1000;
-const THREAT_THRESHOLD = Number(process.env.AUTOBAN_THRESHOLD || 100); // auto-revoke at/above
+// TOKEN_TTL_MS, CHALLENGE_TTL_MS, THREAT_THRESHOLD — see config.mjs (STRENGTH_TIER=8 defaults)
 
 // ---- server-only license logic (vendor issues keys; attacker can't mint them) ----
 function keyFor(userId) {

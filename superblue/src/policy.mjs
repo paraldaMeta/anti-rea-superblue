@@ -1,11 +1,13 @@
 // SuperBlue policy envelope: versioned rules shipped alongside artifacts.
 // Does not hide logic — tells integrators and agents what the client MAY do.
-export const POLICY_VERSION = "1.0.0";
+export const POLICY_VERSION = "1.1.0-strength-8";
 
 export const POLICY_HEADERS = {
   "X-SuperBlue-Policy-Version": POLICY_VERSION,
   "X-SuperBlue-Commercial-Use": "defensive-only-on-software-you-own",
   "X-SuperBlue-L1-Required": "server-side-for-real-lock",
+  "X-SuperBlue-Strength-Tier": "8",
+  "X-SuperBlue-Prod-Tarpit": "forbidden",
   "X-SuperBlue-Contact": "see-report-json",
 };
 
