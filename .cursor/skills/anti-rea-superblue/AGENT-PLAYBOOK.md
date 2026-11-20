@@ -5,7 +5,7 @@ Use when the user says: **全自动 / playbook / 跑一遍 / 无脑 / intake**.
 ## Mode A — Single script (preferred)
 
 ```bash
-export BLA_ROOT="${BLA_ROOT:-.bla-hardened}"
+export BLA_ROOT="${BLA_ROOT:-.anti-rea-superblue}"
 node "$BLA_ROOT/scripts/skill-intake.mjs" --route auto --target "<path-or-empty>" --json
 ```
 
@@ -22,7 +22,7 @@ Launch **one** `generalPurpose` subagent with this description (fill placeholder
 Task: Anti-ReA Skill: SuperBlue playbook
 
 Full Repository Path: <absolute project path>
-BLA_ROOT: <.bla-hardened or repo root>
+BLA_ROOT: <.anti-rea-superblue or repo root>
 
 1. Run: node "$BLA_ROOT/scripts/skill-intake.mjs" --route auto --target "<TARGET>" --json
 2. Execute every step in plan.steps where required=true; respect confirm gates.
@@ -39,7 +39,7 @@ Do **not** spawn chained subagents. Return one final report.
 ## Mode C — Install + verify only
 
 ```bash
-BLA_HARDENED_REF=v0.4.1 curl -fsSL .../install-cursor-skill.sh | bash
+ARS_REF=v0.4.3 curl -fsSL https://raw.githubusercontent.com/paraldaMeta/anti-rea-superblue/main/scripts/install-cursor-skill.sh | bash
 ```
 
 Then Mode A with `--target` empty → expect **R0** on sample inside BLA_ROOT.

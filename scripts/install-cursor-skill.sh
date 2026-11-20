@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Install Anti-ReA Skill: SuperBlue (Cursor skill) into the current project.
 set -euo pipefail
-REPO="${BLA_HARDENED_REPO:-https://github.com/paraldaMeta/bla-hardened.git}"
-REF="${BLA_HARDENED_REF:-v0.4.2}"
+REPO="${ARS_REPO:-https://github.com/paraldaMeta/anti-rea-superblue.git}"
+REF="${ARS_REF:-${BLA_HARDENED_REF:-v0.4.3}}"
 ROOT="$(pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -14,17 +14,23 @@ mkdir -p "$ROOT/.cursor/skills"
 rm -rf "$ROOT/.cursor/skills/anti-rea-superblue"
 cp -R "$TMP/.cursor/skills/anti-rea-superblue" "$ROOT/.cursor/skills/anti-rea-superblue"
 
-if [[ ! -f "$ROOT/.bla-hardened/superblue/src/index.mjs" ]]; then
-  echo "→ Cloning toolchain to .bla-hardened/ ..."
-  git clone --depth 1 --branch "$REF" "$REPO" "$ROOT/.bla-hardened"
-else
-  echo "→ .bla-hardened/ already present, skipping clone."
+if [[ -d "$ROOT/.bla-hardened" && ! -d "$ROOT/.anti-rea-superblue" ]]; then
+  echo "→ Renaming legacy .bla-hardened/ → .anti-rea-superblue/"
+  mv "$ROOT/.bla-hardened" "$ROOT/.anti-rea-superblue"
 fi
 
-if ! grep -q '\.bla-hardened' "$ROOT/.gitignore" 2>/dev/null; then
+if [[ ! -f "$ROOT/.anti-rea-superblue/superblue/src/index.mjs" ]]; then
+  echo "→ Cloning toolchain to .anti-rea-superblue/ ..."
+  git clone --depth 1 --branch "$REF" "$REPO" "$ROOT/.anti-rea-superblue"
+else
+  echo "→ .anti-rea-superblue/ already present, skipping clone."
+fi
+
+if ! grep -q '\.anti-rea-superblue' "$ROOT/.gitignore" 2>/dev/null; then
   {
     echo ""
-    echo "# bla-hardened toolchain (Anti-ReA Skill: SuperBlue)"
+    echo "# anti-rea-superblue toolchain (Anti-ReA Skill: SuperBlue)"
+    echo ".anti-rea-superblue/"
     echo ".bla-hardened/"
     echo ".superblue-out/"
     echo "server-lock/secrets/"
@@ -33,8 +39,8 @@ if ! grep -q '\.bla-hardened' "$ROOT/.gitignore" 2>/dev/null; then
 fi
 
 echo "→ verify-skill-install"
-bash "$ROOT/.bla-hardened/scripts/verify-skill-install.sh" 2>/dev/null || bash "$ROOT/scripts/verify-skill-install.sh" 2>/dev/null || echo "(skip verify — run scripts/verify-skill-install.sh manually)"
+bash "$ROOT/.anti-rea-superblue/scripts/verify-skill-install.sh" 2>/dev/null || bash "$ROOT/scripts/verify-skill-install.sh" 2>/dev/null || echo "(skip verify — run scripts/verify-skill-install.sh manually)"
 
 echo ""
 echo "Done. In Cursor: @anti-rea-superblue — routes: .cursor/skills/anti-rea-superblue/routes.md"
-echo "Pinned ref: $REF (override with BLA_HARDENED_REF=...)"
+echo "Pinned ref: $REF (override with ARS_REF=...)"

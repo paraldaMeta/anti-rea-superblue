@@ -3,9 +3,10 @@
 set -euo pipefail
 ROOT="$(pwd)"
 if [[ -f "$ROOT/superblue/src/index.mjs" ]]; then BLA_ROOT="$ROOT"
+elif [[ -f "$ROOT/.anti-rea-superblue/superblue/src/index.mjs" ]]; then BLA_ROOT="$ROOT/.anti-rea-superblue"
 elif [[ -f "$ROOT/.bla-hardened/superblue/src/index.mjs" ]]; then BLA_ROOT="$ROOT/.bla-hardened"
 else
-  echo "FAIL: no .bla-hardened/ or superblue/ — run install-cursor-skill.sh first" >&2
+  echo "FAIL: no .anti-rea-superblue/ or superblue/ — run install-cursor-skill.sh first" >&2
   exit 2
 fi
 

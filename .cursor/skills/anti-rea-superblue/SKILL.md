@@ -1,16 +1,16 @@
 ---
 name: anti-rea-superblue
 description: >-
-  Anti-ReA Skill: SuperBlue — run the bla-hardened pipeline (SuperBlue L0–L3 + server-lock)
+  Anti-ReA Skill: SuperBlue — run the anti-rea-superblue pipeline (SuperBlue L0–L3 + server-lock)
   on the user's project with route presets R0–R4. Use for anti-REA hardening, reverse-engineering
   friction, server-side license lock, Craft clone resistance, or when the user mentions
-  @anti-rea-superblue, Anti-ReA Skill, SuperBlue, or bla-hardened.
+  @anti-rea-superblue, Anti-ReA Skill, SuperBlue, or anti-rea-superblue.
 disable-model-invocation: true
 ---
 
 # Anti-ReA Skill: SuperBlue
 
-Powered by [bla-hardened](https://github.com/paraldaMeta/bla-hardened) (SuperBlue + server-lock).
+Powered by [anti-rea-superblue](https://github.com/paraldaMeta/anti-rea-superblue) (SuperBlue + server-lock).
 
 **Read this skill end-to-end once per task.** The user should only pick a **route** and
 **target**; you run commands, copy artifacts, and report honestly.
@@ -25,22 +25,22 @@ Powered by [bla-hardened](https://github.com/paraldaMeta/bla-hardened) (SuperBlu
 
 ## Step 0 — Resolve toolchain root
 
-Tooling lives in the **bla-hardened** repo, not inside this skill folder.
+Tooling lives in the **anti-rea-superblue** repo, not inside this skill folder.
 
 Resolve `BLA_ROOT` in order:
 
 1. Workspace already contains `superblue/src/index.mjs` → `BLA_ROOT` = repo root.
-2. Else `./.bla-hardened/superblue/src/index.mjs` exists → `BLA_ROOT=./.bla-hardened`.
+2. Else `./.anti-rea-superblue/superblue/src/index.mjs` exists → `BLA_ROOT=./.anti-rea-superblue`.
 3. Else run bootstrap (from the **user's project root**, not BLA_ROOT):
 
 ```bash
-test -f .bla-hardened/superblue/src/index.mjs || \
-  git clone --depth 1 https://github.com/paraldaMeta/bla-hardened.git .bla-hardened
+test -f .anti-rea-superblue/superblue/src/index.mjs || \
+  git clone --depth 1 https://github.com/paraldaMeta/anti-rea-superblue.git .anti-rea-superblue
 ```
 
 Set `SB="node $BLA_ROOT/superblue/src/index.mjs"`. Require **Node ≥ 20** (22+ for full BLA tarpit).
 
-Pin toolchain (recommended for teams): `export BLA_HARDENED_REF=v0.4.0` before install/clone.
+Pin toolchain (recommended for teams): `export ARS_REF=v0.4.3` before install/clone.
 
 ## Step 0.5 — Detect capabilities (always)
 
@@ -111,4 +111,4 @@ Template:
 
 See [install.md](install.md). Copy-paste prompts (中文): [prompts.zh.md](prompts.zh.md).
 
-Skill source is **this directory** in the bla-hardened repo.
+Skill source is **this directory** in the anti-rea-superblue repo.

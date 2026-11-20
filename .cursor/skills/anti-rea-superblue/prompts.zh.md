@@ -23,5 +23,5 @@
 安装后版本 pin（可选）：
 
 ```bash
-BLA_HARDENED_REF=v0.4.0 curl -fsSL .../install-cursor-skill.sh | bash
+ARS_REF=v0.4.3 curl -fsSL https://raw.githubusercontent.com/paraldaMeta/anti-rea-superblue/main/scripts/install-cursor-skill.sh | bash
 ```

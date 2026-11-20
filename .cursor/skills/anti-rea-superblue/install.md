@@ -1,6 +1,6 @@
 # Anti-ReA Skill: SuperBlue — install
 
-This Cursor skill ships inside [bla-hardened](https://github.com/paraldaMeta/bla-hardened) at
+This Cursor skill ships inside [anti-rea-superblue](https://github.com/paraldaMeta/anti-rea-superblue) at
 `.cursor/skills/anti-rea-superblue/`. It runs SuperBlue + server-lock on **your** repo.
 
 ## Option A — One command (recommended)
@@ -8,24 +8,24 @@ This Cursor skill ships inside [bla-hardened](https://github.com/paraldaMeta/bla
 From **your app project root**:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/paraldaMeta/bla-hardened/main/scripts/install-cursor-skill.sh | bash
+curl -fsSL https://raw.githubusercontent.com/paraldaMeta/anti-rea-superblue/main/scripts/install-cursor-skill.sh | bash
 ```
 
-Copies the skill to `.cursor/skills/anti-rea-superblue/` and clones `.bla-hardened/` if needed (default **v0.4.1**).
+Copies the skill to `.cursor/skills/anti-rea-superblue/` and clones `.anti-rea-superblue/` if needed (default **v0.4.3**).
 
 ## Option D — GitHub Release zip
 
-Download `anti-rea-superblue-skill-vX.Y.Z.zip` from [Releases](https://github.com/paraldaMeta/bla-hardened/releases),
+Download `anti-rea-superblue-skill-vX.Y.Z.zip` from [Releases](https://github.com/paraldaMeta/anti-rea-superblue/releases),
 unzip at your project root, then:
 
 ```bash
-BLA_HARDENED_REF=v0.4.1 bash scripts/install-cursor-skill.sh
+ARS_REF=v0.4.3 bash scripts/install-cursor-skill.sh
 ```
 
 Verify:
 
 ```bash
-bash .bla-hardened/scripts/verify-skill-install.sh
+bash .anti-rea-superblue/scripts/verify-skill-install.sh
 # or from inside bla-hardened repo:
 bash scripts/verify-skill-install.sh
 ```
@@ -36,17 +36,17 @@ Chinese copy-paste prompts: [prompts.zh.md](prompts.zh.md).
 
 ```bash
 mkdir -p .cursor/skills
-git clone --depth 1 https://github.com/paraldaMeta/bla-hardened.git /tmp/bla-hardened
-cp -R /tmp/bla-hardened/.cursor/skills/anti-rea-superblue .cursor/skills/
-rm -rf /tmp/bla-hardened
+git clone --depth 1 https://github.com/paraldaMeta/anti-rea-superblue.git /tmp/anti-rea-superblue
+cp -R /tmp/anti-rea-superblue/.cursor/skills/anti-rea-superblue .cursor/skills/
+rm -rf /tmp/anti-rea-superblue
 ```
 
 ## Option C — Submodule
 
 ```bash
-git submodule add https://github.com/paraldaMeta/bla-hardened.git .bla-hardened
+git submodule add https://github.com/paraldaMeta/anti-rea-superblue.git .anti-rea-superblue
 mkdir -p .cursor/skills
-cp -R .bla-hardened/.cursor/skills/anti-rea-superblue .cursor/skills/
+cp -R .anti-rea-superblue/.cursor/skills/anti-rea-superblue .cursor/skills/
 ```
 
 ## Use in Cursor
@@ -58,6 +58,6 @@ cp -R .bla-hardened/.cursor/skills/anti-rea-superblue .cursor/skills/
 | Path | Purpose |
 |------|---------|
 | `.cursor/skills/anti-rea-superblue/` | This skill |
-| `.bla-hardened/` | Toolchain clone |
+| `.anti-rea-superblue/` | Toolchain clone |
 | `.superblue-out/` | R1/R2 outputs (gitignore) |
 | `server-lock/` | Your project copy (R3/R4) |

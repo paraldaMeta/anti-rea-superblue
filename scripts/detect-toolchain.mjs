@@ -11,9 +11,11 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const defaultRoot = join(scriptDir, "..");
 
 function resolveBlaRoot() {
-  if (process.env.BLA_ROOT) return resolve(process.env.BLA_ROOT);
+  const envRoot = process.env.ARS_ROOT || process.env.BLA_ROOT;
+  if (envRoot) return resolve(envRoot);
   const cwd = process.cwd();
   if (existsSync(join(cwd, "superblue", "src", "index.mjs"))) return cwd;
+  if (existsSync(join(cwd, ".anti-rea-superblue", "superblue", "src", "index.mjs"))) return join(cwd, ".anti-rea-superblue");
   if (existsSync(join(cwd, ".bla-hardened", "superblue", "src", "index.mjs"))) return join(cwd, ".bla-hardened");
   return defaultRoot;
 }
@@ -44,7 +46,7 @@ if (!nodeTarpitOk) notes.push("Node 22+ recommended for BLA tarpit local fork.")
 
 const out = {
   blaRoot,
-  skillVersion: process.env.BLA_HARDENED_REF || "main",
+  skillVersion: process.env.ARS_REF || process.env.BLA_HARDENED_REF || "main",
   node: { version: nodeV, ok: nodeOk, tarpitRecommended: nodeTarpitOk },
   esbuild: { ok: esb },
   blaTarpit: { localFork: bla, npxAgents: npxBlaOk, ok: bla || npxBlaOk },

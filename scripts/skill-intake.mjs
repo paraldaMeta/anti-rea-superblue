@@ -15,6 +15,7 @@ function blaRoot() {
   if (process.env.BLA_ROOT) return resolve(process.env.BLA_ROOT);
   const cwd = process.cwd();
   if (existsSync(join(cwd, "superblue", "src", "index.mjs"))) return cwd;
+  if (existsSync(join(cwd, ".anti-rea-superblue", "superblue", "src", "index.mjs"))) return join(cwd, ".anti-rea-superblue");
   if (existsSync(join(cwd, ".bla-hardened", "superblue", "src", "index.mjs"))) return join(cwd, ".bla-hardened");
   return defaultRoot;
 }

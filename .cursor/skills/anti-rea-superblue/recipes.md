@@ -1,6 +1,6 @@
 # Integration recipes
 
-Copy `server-lock/` from bla-hardened into the user's project. Endpoints to expose
+Copy `server-lock/` from anti-rea-superblue into the user's project. Endpoints to expose
 (server-side only): `GET /challenge`, `POST /activate`, `POST /premium`, `POST /revoke`,
 `GET /forensics`.
 

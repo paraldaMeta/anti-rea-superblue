@@ -1,5 +1,4 @@
-# bla-hardened
-
+# anti-rea-superblue
 Defensive tooling for **raising cost** against REA-class static/agent reverse engineering — not a cryptographic lock on client-side code.
 
 | Component | Role |
@@ -24,8 +23,8 @@ Defensive tooling for **raising cost** against REA-class static/agent reverse en
 
 ```bash
 # pinned release (recommended)
-BLA_HARDENED_REF=v0.4.2 curl -fsSL https://raw.githubusercontent.com/paraldaMeta/bla-hardened/main/scripts/install-cursor-skill.sh | bash
-bash .bla-hardened/scripts/verify-skill-install.sh
+ARS_REF=v0.4.3 curl -fsSL https://raw.githubusercontent.com/paraldaMeta/anti-rea-superblue/main/scripts/install-cursor-skill.sh | bash
+bash .anti-rea-superblue/scripts/verify-skill-install.sh
 ```
 
 一键话术：[`prompts.zh.md`](.cursor/skills/anti-rea-superblue/prompts.zh.md)

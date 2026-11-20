@@ -14,13 +14,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Bootstrap bla-hardened
+      - name: Bootstrap anti-rea-superblue
         run: |
-          test -d .bla-hardened || git clone --depth 1 --branch v0.4.2 https://github.com/paraldaMeta/bla-hardened.git .bla-hardened
+          test -d .anti-rea-superblue || git clone --depth 1 --branch v0.4.3 https://github.com/paraldaMeta/anti-rea-superblue.git .anti-rea-superblue
       - name: L0 scan shipped or src
         run: |
           TARGET="${ANTI_REA_TARGET:-src}"
-          node .bla-hardened/superblue/src/index.mjs scan "$TARGET" --block-level critical
+          node .anti-rea-superblue/superblue/src/index.mjs scan "$TARGET" --block-level critical
       - name: Strength-8 posture (optional full stack)
         continue-on-error: true
-        run: node .bla-hardened/scripts/strength-8-check.mjs "${ANTI_REA_TARGET:-.}" --json
+        run: node .anti-rea-superblue/scripts/strength-8-check.mjs "${ANTI_REA_TARGET:-.}" --json
