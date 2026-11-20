@@ -7,6 +7,7 @@
   "scripts": {
     "keygen": "node src/keygen.mjs",
     "demo": "node src/demo.mjs",
+    "trace": "node src/trace-demo.mjs",
     "server": "node src/server.mjs"
   }
 }

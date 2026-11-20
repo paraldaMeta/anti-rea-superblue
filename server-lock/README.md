@@ -61,6 +61,35 @@ node src/server.mjs    # http://localhost:8787
    server-side (as `premium` does) makes the bypass worthless. If a feature can run
    fully offline, it can be unlocked offline — no cryptography changes that.
 
+## Can you "strike back" / trace the attacker? (active defense)
+
+Two very different things:
+
+- ❌ **Hack-back is out.** Logic bombs, remote code execution, destroying the
+  attacker's machine, exfiltrating their data — illegal almost everywhere (US CFAA,
+  etc.) and technically futile: REA/Craft run your code in an isolated, often
+  network-blocked, throwaway sandbox, so a payload hits a VM, not a person, and only
+  creates liability for *you*. This repo does **not** do this.
+- ✅ **Attribution + traceback + revocation is in** (`watermark.mjs`, telemetry in
+  `server.mjs`, demo `trace-demo.mjs`). Legal, standard, and effective:
+
+  | Technique | What it catches |
+  |---|---|
+  | **Per-recipient watermark** (unique build id) | a leaked/analyzed copy → the ONE buyer it was issued to |
+  | **Honeytoken** (fake license baked into the binary) | anyone who scraped the binary and tries the decoy key → instant attacker attribution; server returns a *generic* failure so they learn nothing |
+  | **Canary beacon** | the watermarked build was loaded/run in a non-isolated env → phones home with ip/UA (a *signal*, defeated by network isolation) |
+  | **Server-side telemetry** | token sharing / cloned clients (one token, many device fingerprints), impossible velocity, abnormal call patterns |
+  | **Revocation (kill switch)** | per-token (`jti`) or per-user; stateless tokens made instantly revocable server-side |
+  | **Forensic report** (`/forensics`) | an evidence trail (timestamps, ip, UA, flags) for your lawyer / a platform abuse team |
+
+  ```bash
+  node src/trace-demo.mjs   # two watermarked builds -> trace a leak to the exact buyer
+  ```
+
+  Honest limit: the *reliable* attribution is **server-side** (the lock already routes
+  every use through you). Client-side canaries are a bonus signal, not a guarantee — a
+  careful analyst runs your code offline and never pings back.
+
 ## Where this plugs into SuperBlue
 
 SuperBlue's L1 is *advice* precisely because it can't be bolted on by a tool — it's an
